@@ -97,7 +97,7 @@ namespace PancakeEmulator
                     Processor.ClockCycles += 12;
                     break;
                 case 0x31:  // SP <- immediate
-                    Processor.SP = Memory.GetWord(Processor.PC);
+                    Processor.SP = Memory.ReadWord(Processor.PC);
                     Processor.PC += 2;
                     Processor.ClockCycles += 12;
                     break;
@@ -170,7 +170,7 @@ namespace PancakeEmulator
                     Processor.ClockCycles += 8;
                     break;
                 case 0xFA:  // A <- (nn immediate)
-                    Processor.A = Memory.ReadByte(Memory.GetWord(Processor.PC));
+                    Processor.A = Memory.ReadByte(Memory.ReadWord(Processor.PC));
                     Processor.PC += 2;
                     Processor.ClockCycles += 16;
                     break;
@@ -180,23 +180,24 @@ namespace PancakeEmulator
                     Processor.PC++;
                     Processor.ClockCycles += 12;
                     break;
+
                 //TODO: here onwards
                 // register to memory transfer
                 case 0xE2:    // (0xFF00 + C) <- A
-                    word = (ushort)(0xFF00 + Processor.C);
-                    Memory.WriteByte(word, Processor.A);
+                    tempWord = (ushort)(0xFF00 + Processor.C);
+                    Memory.WriteByte(tempWord, Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0x02:  // (BC) <- A
-                    word = (ushort)(Processor.B << 8 | Processor.C);
-                    Memory.WriteByte(word, Processor.A);
+                    tempWord = (ushort)(Processor.B << 8 | Processor.C);
+                    Memory.WriteByte(tempWord, Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0x12:  // (DE) <- A
-                    word = (ushort)(Processor.D << 8 | Processor.E);
-                    Memory.WriteByte(word, Processor.A);
+                    tempWord = (ushort)(Processor.D << 8 | Processor.E);
+                    Memory.WriteByte(tempWord, Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
@@ -236,15 +237,15 @@ namespace PancakeEmulator
                     Processor.ClockCycles += 8;
                     break;
                 case 0xEA:  // (nn) <- A
-                    word = (ushort)(Memory.Data[Processor.PC + 2] << 8 | Memory.Data[Processor.PC + 1]);
-                    Memory.WriteByte(word, Processor.A);
-                    Processor.PC += 3;
+                    tempWord = Memory.ReadWord(Processor.PC);
+                    Memory.WriteByte(tempWord, Processor.A);
+                    Processor.PC += 2;
                     Processor.ClockCycles += 16;
                     break;
                 case 0xE0:  // (0xFF00+ n immediate) <- A
-                    word = (ushort)(0xFF00 + Memory.Data[Processor.PC + 1]);
-                    Memory.WriteByte(word, Processor.A);
-                    Processor.PC += 2;
+                    tempWord = (ushort)(0xFF00 + Memory.Data[Processor.PC]);
+                    Memory.WriteByte(tempWord, Processor.A);
+                    Processor.PC++;
                     Processor.ClockCycles += 12;
                     break;
                 case 0x32:  // (HL) <- A, HL--    
@@ -264,10 +265,9 @@ namespace PancakeEmulator
                     Processor.ClockCycles += 8;
                     break;
                 case 0x08:  // (nn) <- SP
-                    word = (ushort)(Memory.Data[Processor.PC + 2] << 8 | Memory.Data[Processor.PC + 1]);
-                    Memory.WriteByte(word, (byte)Processor.SP);
-                    Memory.WriteByte((ushort)(word + 1), (byte)(Processor.SP >> 8));
-                    Processor.PC += 3;
+                    tempWord = Memory.ReadWord(Processor.PC);
+                    Memory.WriteWord(tempWord, Processor.SP);
+                    Processor.PC ++;
                     Processor.ClockCycles += 20;
                     break;
 
@@ -518,10 +518,10 @@ namespace PancakeEmulator
                     break;
 
                 case 0xF8: // HL <- SP + signed immediate
-                    word = Processor.HL;
-                    Processor.HL = (ushort)(Processor.SP + (sbyte)(Memory.Data[Processor.PC + 1]));
-                    Processor.SetFlags(0, 0, (word & 0x800) - (Processor.HL & 0x800), (word & 0x8000) - (Processor.HL & 0x8000));
-                    Processor.PC += 2;
+                    tempWord = Processor.HL;
+                    Processor.HL = (ushort)(Processor.SP + (sbyte)(Memory.Data[Processor.PC]));
+                    Processor.SetFlags(0, 0, (tempWord & 0x800) - (Processor.HL & 0x800), (tempWord & 0x8000) - (Processor.HL & 0x8000));
+                    Processor.PC ++;
                     Processor.ClockCycles += 12;
                     break;
 
@@ -555,26 +555,26 @@ namespace PancakeEmulator
 
                 // POP
                 case 0xF1:  // POP AF
-                    Processor.A = op_pop();
-                    Processor.F = op_pop();
+                    Processor.A = PopOp();
+                    Processor.F = PopOp();
                     Processor.PC++;
                     Processor.ClockCycles += 12;
                     break;
                 case 0xC1:  // POP BC
-                    Processor.B = op_pop();
-                    Processor.C = op_pop();
+                    Processor.B = PopOp();
+                    Processor.C = PopOp();
                     Processor.PC++;
                     Processor.ClockCycles += 12;
                     break;
                 case 0xD1:  // POP DE
-                    Processor.D = op_pop();
-                    Processor.E = op_pop();
+                    Processor.D = PopOp();
+                    Processor.E = PopOp();
                     Processor.PC++;
                     Processor.ClockCycles += 12;
                     break;
                 case 0xE1:  // POP HL
-                    Processor.H = op_pop();
-                    Processor.L = op_pop();
+                    Processor.H = PopOp();
+                    Processor.L = PopOp();
                     Processor.PC++;
                     Processor.ClockCycles += 12;
                     break;
@@ -587,12 +587,12 @@ namespace PancakeEmulator
                 // 8-bit arithmetics
 
                 // ADD
-                case 0x87:
-                    op_add(Processor.A);
+                case 0x87: //A += A
+                    AddOp(Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x80:
+                case 0x80: //A += B
                     op_add(Processor.B);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
@@ -1803,6 +1803,15 @@ namespace PancakeEmulator
         {
             Processor.SP++;
             return Memory.Data[Processor.SP];
+        }
+
+        //add something to A
+        public byte AddOp(byte val)
+        {
+            byte a = Processor.A;
+            Processor.A += a;
+            //first two flags are obvious. halfcarry is set TODO
+            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (a & 0x8) - (Processor.A & 0x8), (a & 0x08) - (Processor.A & 0x08));
         }
     }
 }

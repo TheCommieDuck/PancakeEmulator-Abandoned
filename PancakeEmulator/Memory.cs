@@ -14,19 +14,25 @@ namespace PancakeEmulator
             return 0;
         }
 
-        internal static void WriteByte(ushort p1, byte p2)
+        internal void WriteByte(ushort address, byte data)
         {
             throw new NotImplementedException();
         }
 
-        internal static byte ReadByte(ushort word)
+        public byte ReadByte(ushort p)
         {
-            throw new NotImplementedException();
+            return Data[p];
         }
 
-        public static ushort GetWord(ushort p)
+        public ushort ReadWord(ushort p)
         {
             return (ushort)(Data[p + 1] << 8 | Data[p]);
+        }
+
+        public void WriteWord(ushort address, ushort data)
+        {
+            WriteByte(address, (byte)(data & 0x00FF));
+            WriteByte((ushort)(address + 1), (byte)(data >> 8));
         }
     }
 }
