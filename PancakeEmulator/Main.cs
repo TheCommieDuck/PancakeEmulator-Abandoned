@@ -36,9 +36,10 @@ namespace PancakeEmulator
             //temp variables
             ushort tempWord;
             byte tempByte;
+
             switch (opcode)
             {
-                #region   /* Load instructions */
+                #region  Load instructions 
                 // immediate loads
                 case 0x3E:  // A <- immediate  
                     Processor.A = Memory.Data[Processor.PC];
@@ -161,7 +162,7 @@ namespace PancakeEmulator
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
-                case 0x2A:  // A <- (HL), HL++      /* FLAGS??? supposedly not needed*/
+                case 0x2A:  // A <- (HL), HL++ Maybe flags?
                     Processor.A = Memory.ReadByte(Processor.HL);
                     Processor.HL++;
                     Processor.H = (byte)(Processor.HL >> 8);
@@ -582,7 +583,7 @@ namespace PancakeEmulator
 
                 #endregion
 
-                #region /* Arithmetic instructions */
+                #region  Arithmetic instructions 
 
                 // 8-bit arithmetics
 
@@ -997,7 +998,7 @@ namespace PancakeEmulator
 
                 #endregion
 
-                #region /* Jump instructions */
+                #region  Jump instructions 
                 // absolute jumps
                 case 0xC3:  // Unconditional + 2B immediate operands
                     op_jmpfar();
@@ -1149,7 +1150,7 @@ namespace PancakeEmulator
 
                 #endregion
 
-                #region /* Logical instructions */
+                #region  Logical instructions 
 
                 // OR
                 case 0xB7:  // A = A OR A = A !!!
@@ -1318,7 +1319,7 @@ namespace PancakeEmulator
 
                 #endregion
 
-                #region /* Miscellaneous instructions */
+                #region  Miscellaneous instructions 
 
                 case 0x07:  // Rotate A left
                     Processor.A = op_rlc(Processor.A);
@@ -1784,11 +1785,16 @@ namespace PancakeEmulator
             Processor.PC = Pop16BitOp();
         }
 
-        //reset the PC to some address
-        public byte ResetOp(ushort to)
+        private ushort Pop16BitOp()
         {
-            ushort oldPC = PC;
-            PushOp(oldPC);
+            throw new NotImplementedException();
+        }
+
+        //reset the PC to some address
+        public void ResetOp(ushort to)
+        {
+            ushort oldPC = Processor.PC;
+            Push16BitOp(oldPC);
             Processor.PC = to;
         }
 
@@ -1799,6 +1805,10 @@ namespace PancakeEmulator
             Processor.SP--;
         }
 
+        public void Push16BitOp(ushort val)
+        {
+        }
+
         public byte PopOp()
         {
             Processor.SP++;
@@ -1806,12 +1816,13 @@ namespace PancakeEmulator
         }
 
         //add something to A
-        public byte AddOp(byte val)
+        public void AddOp(byte val)
         {
             byte a = Processor.A;
             Processor.A += a;
-            //first two flags are obvious. halfcarry is set TODO
-            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (a & 0x8) - (Processor.A & 0x8), (a & 0x08) - (Processor.A & 0x08));
+            //first two flags are obvious. halfcarry is set if bit 4 carries
+            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (((a & 0xf) + (value & 0xf)) & 0x10) == 0x10 ? 1 : 0, 
+                (a & 0x08) - (Processor.A & 0x08));
         }
     }
 }
