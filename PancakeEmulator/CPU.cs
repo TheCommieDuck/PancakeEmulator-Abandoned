@@ -18,7 +18,7 @@ namespace PancakeEmulator
         public uint ClockCycles;
 
         //if A = 0, if a subtraction was performed, if the bottom nibble carried, if the whole thing carried
-        public void SetFlags(byte zeroFlag, byte subtractFlag, byte halfCarryFlag, byte carryFlag)
+        public void SetFlags(int zeroFlag, int subtractFlag, int halfCarryFlag, int carryFlag)
         {
             throw new NotImplementedException();
         }

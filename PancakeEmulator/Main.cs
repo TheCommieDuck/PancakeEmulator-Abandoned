@@ -521,7 +521,9 @@ namespace PancakeEmulator
                 case 0xF8: // HL <- SP + signed immediate
                     tempWord = Processor.HL;
                     Processor.HL = (ushort)(Processor.SP + (sbyte)(Memory.Data[Processor.PC]));
-                    Processor.SetFlags(0, 0, (tempWord & 0x800) - (Processor.HL & 0x800), (tempWord & 0x8000) - (Processor.HL & 0x8000));
+                    int halfcarry = ((tempWord & 0xfff) + (Processor.HL & 0xfff) & 0x1000) == 0x1000 ? 1 : 0;
+                    int carry = Processor.SP + (sbyte)(Memory.Data[Processor.PC]) > 0xFFFF ? 1 : 0;
+                    Processor.SetFlags(0, 0, halfcarry, carry);
                     Processor.PC ++;
                     Processor.ClockCycles += 12;
                     break;
@@ -594,116 +596,116 @@ namespace PancakeEmulator
                     Processor.ClockCycles += 4;
                     break;
                 case 0x80: //A += B
-                    op_add(Processor.B);
+                    AddOp(Processor.B);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x81:
-                    op_add(Processor.C);
+                case 0x81: //A += C
+                    AddOp(Processor.C);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x82:
-                    op_add(Processor.D);
+                case 0x82: //A += D
+                    AddOp(Processor.D);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x83:
-                    op_add(Processor.E);
+                case 0x83: //A += E
+                    AddOp(Processor.E);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x84:
-                    op_add(Processor.H);
+                case 0x84: //A += H
+                    AddOp(Processor.H);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x85:
-                    op_add(Processor.L);
+                case 0x85: //A += L
+                    AddOp(Processor.L);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x86:
-                    op_add(Memory.ReadByte(Processor.HL));
+                case 0x86: // A+= (HL)
+                    AddOp(Memory.ReadByte(Processor.HL));
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
-                case 0xC6:
-                    op_add(Memory.Data[Processor.PC + 1]);
-                    Processor.PC += 2;
+                case 0xC6: // A += immediate
+                    AddOp(Memory.Data[Processor.PC]);
+                    Processor.PC ++;
                     Processor.ClockCycles += 8;
                     break;
 
                 // ADC
-                case 0x8F:
-                    op_adc(Processor.A);
+                case 0x8F: //A += A+carry
+                    AdcOp(Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x88:
-                    op_adc(Processor.B);
+                case 0x88://A+=B+carry
+                    AdcOp(Processor.B);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x89:
-                    op_adc(Processor.C);
+                case 0x89://A+=C+carry
+                    AdcOp(Processor.C);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x8A:
-                    op_adc(Processor.D);
+                case 0x8A://A+=D+carry
+                    AdcOp(Processor.D);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x8B:
-                    op_adc(Processor.E);
+                case 0x8B://A+=E+carry
+                    AdcOp(Processor.E);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x8C:
-                    op_adc(Processor.H);
+                case 0x8C://A+=H+carry
+                    AdcOp(Processor.H);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x8D:
-                    op_adc(Processor.L);
+                case 0x8D://A+=L+carry
+                    AdcOp(Processor.L);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x8E:
-                    op_adc(Memory.ReadByte(Processor.HL));
+                case 0x8E://A+=(HL)+carry
+                    AdcOp(Memory.ReadByte(Processor.HL));
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
-                case 0xCE:
-                    op_add(Memory.Data[Processor.PC + 1]);
-                    Processor.PC += 2;
+                case 0xCE://A+=immediate+carry
+                    AdcOp(Memory.Data[Processor.PC]);
+                    Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
 
                 // SUB
-                case 0x97:
-                    op_sub(Processor.A);
+                case 0x97://A-=A
+                    SubOp(Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x90:
-                    op_sub(Processor.B);
+                case 0x90://A-=B
+                    SubOp(Processor.B);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x91:
-                    op_sub(Processor.C);
+                case 0x91://A-=C
+                    SubOp(Processor.C);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x92:
-                    op_sub(Processor.D);
+                case 0x92://A-=D
+                    SubOp(Processor.D);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x93:
-                    op_sub(Processor.E);
+                case 0x93://A-=E
+                    SubOp(Processor.E);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
@@ -1779,6 +1781,11 @@ namespace PancakeEmulator
             }
         }
 
+        private void AdcOp(byte p)
+        {
+            throw new NotImplementedException();
+        }
+
         //return from a subroutine
         public void ReturnOp()
         {
@@ -1820,9 +1827,9 @@ namespace PancakeEmulator
         {
             byte a = Processor.A;
             Processor.A += a;
-            //first two flags are obvious. halfcarry is set if bit 4 carries
-            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (((a & 0xf) + (value & 0xf)) & 0x10) == 0x10 ? 1 : 0, 
-                (a & 0x08) - (Processor.A & 0x08));
+            //first two flags are obvious. halfcarry is set if bit 3 carries. carry set if the addition is smaller than the input
+            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (((a & 0xf) + (Processor.A & 0xf)) & 0x10) == 0x10 ? 1 : 0, 
+                Processor.A < val ? 1 : 0);
         }
     }
 }
