@@ -41,7 +41,7 @@ namespace PancakeEmulator
 
         public void LoadFromFile(/*String fileName*/)
         {
-            using(BinaryReader reader = new BinaryReader(new FileStream("pkmn.gb", FileMode.Open)))
+            using(BinaryReader reader = new BinaryReader(new FileStream("cpu_instrs/01-special.gb", FileMode.Open)))
             {
                 size =  reader.BaseStream.Length;
                 this.Data = new byte[size];

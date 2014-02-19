@@ -32,6 +32,8 @@ namespace PancakeEmulator
                 this.Data[0xC000 + (address - 0xE000)] = data;
             else if ((address >= 0xC000) && (address <= 0xD300))
                 this.Data[0xE000 + (address - 0xC000)] = data;
+
+            this.Data[address] = data;
         }
 
         public byte ReadByte(ushort p)

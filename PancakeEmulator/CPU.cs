@@ -11,12 +11,26 @@ namespace PancakeEmulator
         //registers
         public byte A, B, C, D, E, F, H, L;
         //pointery-registers
-        public ushort SP, PC, HL;
+        public ushort SP, PC;
+
+        public ushort HL
+        {
+            get
+            {
+                return (ushort)(H << 8 | L);
+            }
+            set
+            {
+                H = (byte)(value >> 8);
+                L = (byte)value;
+            }
+        }
         //flags
         public byte ZeroFlag, SubtractionFlag, HalfFlag, CarryFlag;
         //clock cycles
         public uint ClockCycles;
-        public static int EIsignaled;
+        public int EnableSignal;
+        public static int DisableSignal;
 
         //if A = 0, if a subtraction was performed, if the bottom nibble carried, if the whole thing carried
         public void SetFlags(int zeroFlag, int subtractFlag, int halfCarryFlag, int carryFlag)
