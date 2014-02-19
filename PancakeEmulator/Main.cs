@@ -12,20 +12,44 @@ namespace PancakeEmulator
 
         public Memory Memory { get; set; }
 
+        public bool IsRunning { get; set; }
+
         public static void Main(String[] args)
         {
             Emulator main = new Emulator();
             main.Processor = new Processor();
             main.Memory = new Memory();
+            Rom rom = new Rom();
+            rom.LoadFromFile();
+            main.LoadRom(rom);
             main.Run();
+        }
+
+        private void LoadRom(Rom rom)
+        {
+            Memory.Reset();
+            Processor.Reset();
+            //if the type is 0 it's a rom only cartridge giving it a different address space, or something.
+            for (int i = 0; i < ((rom.Header.CartridgeType == 0) ? 0x8000 : 0x4000); ++i)
+                Memory.Data[i] = rom.Data[i];
+
+            //ignore the checking stuff, it's not really needed to be honest
+            //nintendo logo check, complement check, checksum (not used regardless)
+
+            //reset the video?
         }
 
         public void Run()
         {
             //get the instruction and increment the program count
-            byte instr = Memory.Data[Processor.PC];
-            Processor.PC++;
-            Decode(instr);
+            IsRunning = true;
+            while (IsRunning)
+            {
+                byte instr = Memory.Data[Processor.PC];
+                Processor.PC++;
+                Console.WriteLine("Performed operation {0:X2}", instr);
+                Decode(instr);
+            }
         }
 
         public void Decode(byte opcode)
@@ -36,6 +60,8 @@ namespace PancakeEmulator
             //temp variables
             ushort tempWord;
             byte tempByte;
+            int halfcarry, carry;
+            bool err;
 
             switch (opcode)
             {
@@ -521,8 +547,8 @@ namespace PancakeEmulator
                 case 0xF8: // HL <- SP + signed immediate
                     tempWord = Processor.HL;
                     Processor.HL = (ushort)(Processor.SP + (sbyte)(Memory.Data[Processor.PC]));
-                    int halfcarry = ((tempWord & 0xfff) + (Processor.HL & 0xfff) & 0x1000) == 0x1000 ? 1 : 0;
-                    int carry = Processor.SP + (sbyte)(Memory.Data[Processor.PC]) > 0xFFFF ? 1 : 0;
+                    halfcarry = ((tempWord & 0xfff) + (Processor.HL & 0xfff) & 0x1000) == 0x1000 ? 1 : 0;
+                    carry = Processor.SP + (sbyte)(Memory.Data[Processor.PC]) > 0xFFFF ? 1 : 0;
                     Processor.SetFlags(0, 0, halfcarry, carry);
                     Processor.PC ++;
                     Processor.ClockCycles += 12;
@@ -709,65 +735,65 @@ namespace PancakeEmulator
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x94:
-                    op_sub(Processor.H);
+                case 0x94: //A -=H
+                    SubOp(Processor.H);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x95:
-                    op_sub(Processor.L);
+                case 0x95: //A-=L
+                    SubOp(Processor.L);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x96:
-                    op_sub(Memory.ReadByte(Processor.HL));
+                case 0x96: //A-=(HL)
+                    SubOp(Memory.ReadByte(Processor.HL));
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
-                case 0xD6:
-                    op_sub(Memory.Data[Processor.PC + 1]);
+                case 0xD6://A-=(immediate)
+                    SubOp(Memory.Data[Processor.PC]);
                     Processor.PC += 2;
                     Processor.ClockCycles += 8;
                     break;
 
                 // SBC
-                case 0x9F:
-                    op_sbc(Processor.A);
+                case 0x9F: //A-=A+carry
+                    SbcOp(Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x98:
-                    op_sbc(Processor.B);
+                case 0x98: //.etc
+                    SbcOp(Processor.B);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0x99:
-                    op_sbc(Processor.C);
+                    SbcOp(Processor.C);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0x9A:
-                    op_sbc(Processor.D);
+                    SbcOp(Processor.D);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0x9B:
-                    op_sbc(Processor.E);
+                    SbcOp(Processor.E);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0x9C:
-                    op_sbc(Processor.H);
+                    SbcOp(Processor.H);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0x9D:
-                    op_sbc(Processor.L);
+                    SbcOp(Processor.L);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0x9E:
-                    op_sbc(Memory.ReadByte(Processor.HL));
+                    SbcOp(Memory.ReadByte(Processor.HL));
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
@@ -775,135 +801,135 @@ namespace PancakeEmulator
 
 
                 // INC
-                case 0x3C:
-                    Processor.A = op_inc(Processor.A);
+                case 0x3C: //A++
+                    Processor.A = IncOp(Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x04:
-                    Processor.B = op_inc(Processor.B);
+                case 0x04: //B++
+                    Processor.B = IncOp(Processor.B);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x0C:
-                    Processor.C = op_inc(Processor.C);
+                case 0x0C: //C++
+                    Processor.C = IncOp(Processor.C);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x14:
-                    Processor.D = op_inc(Processor.D);
+                case 0x14: //D++
+                    Processor.D = IncOp(Processor.D);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x1C:
-                    Processor.E = op_inc(Processor.E);
+                case 0x1C: //E++
+                    Processor.E = IncOp(Processor.E);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x24:
-                    Processor.H = op_inc(Processor.H);
+                case 0x24: //H++
+                    Processor.H = IncOp(Processor.H);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x2C:
-                    Processor.L = op_inc(Processor.L);
+                case 0x2C: //L++
+                    Processor.L = IncOp(Processor.L);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x34:
-                    value = Memory.ReadByte(Processor.HL);
-                    Memory.WriteByte(Processor.HL, op_inc(value));
+                case 0x34: //(HL)++
+                    tempByte = Memory.ReadByte(Processor.HL);
+                    Memory.WriteByte(Processor.HL, IncOp(tempByte));
                     Processor.PC++;
                     Processor.ClockCycles += 12;
                     break;
 
                 // DEC
-                case 0x3D:
-                    Processor.A = op_dec(Processor.A);
+                case 0x3D: //A--
+                    Processor.A = DecOp(Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x05:
-                    Processor.B = op_dec(Processor.B);
+                case 0x05: //B--
+                    Processor.B = DecOp(Processor.B);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x0D:
-                    Processor.C = op_dec(Processor.C);
+                case 0x0D: //C--
+                    Processor.C = DecOp(Processor.C);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x15:
-                    Processor.D = op_dec(Processor.D);
+                case 0x15: //D--
+                    Processor.D = DecOp(Processor.D);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x1D:
-                    Processor.E = op_dec(Processor.E);
+                case 0x1D: //E--
+                    Processor.E = DecOp(Processor.E);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x25:
-                    Processor.H = op_dec(Processor.H);
+                case 0x25: //H--
+                    Processor.H = DecOp(Processor.H);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x2D:
-                    Processor.L = op_dec(Processor.L);
+                case 0x2D: //L--
+                    Processor.L = DecOp(Processor.L);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
-                case 0x35:
-                    value = Memory.ReadByte(Processor.HL);
-                    Memory.WriteByte(Processor.HL, op_dec(value));
+                case 0x35: //(HL)--
+                    tempByte = Memory.ReadByte(Processor.HL);
+                    Memory.WriteByte(Processor.HL, DecOp(tempByte));
                     Processor.PC++;
                     Processor.ClockCycles += 12;
                     break;
 
                 // CMP
                 case 0xBF:
-                    op_cmp(Processor.A);
+                    CompareOp(Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xB8:
-                    op_cmp(Processor.B);
+                    CompareOp(Processor.B);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xB9:
-                    op_cmp(Processor.C);
+                    CompareOp(Processor.C);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xBA:
-                    op_cmp(Processor.D);
+                    CompareOp(Processor.D);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xBB:
-                    op_cmp(Processor.E);
+                    CompareOp(Processor.E);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xBC:
-                    op_cmp(Processor.H);
+                    CompareOp(Processor.H);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xBD:
-                    op_cmp(Processor.L);
+                    CompareOp(Processor.L);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xBE:
-                    op_cmp(Memory.ReadByte(Processor.HL));
+                    CompareOp(Memory.ReadByte(Processor.HL));
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0xFE:
-                    op_cmp(Memory.Data[Processor.PC + 1]);
-                    Processor.PC += 2;
+                    CompareOp(Memory.Data[Processor.PC]);
+                    Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
 
@@ -911,47 +937,49 @@ namespace PancakeEmulator
 
                 // ADD
                 case 0x09:
-                    op_add16((ushort)(Processor.B << 8 | Processor.C));
+                    Add16BitOp((ushort)(Processor.B << 8 | Processor.C));
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0x19:
-                    op_add16((ushort)(Processor.D << 8 | Processor.E));
+                    Add16BitOp((ushort)(Processor.D << 8 | Processor.E));
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0x29:
-                    op_add16(Processor.HL);
+                    Add16BitOp(Processor.HL);
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0x39:
-                    op_add16(Processor.SP);
+                    Add16BitOp(Processor.SP);
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0xE8:  // SP += signed immediate byte                              
-                    word = Processor.SP;
-                    Processor.SP = (ushort)(Processor.SP + ((sbyte)Memory.Data[Processor.PC + 1]));
-                    Processor.SetFlags(0, 0, (word & 0x800) - (Processor.SP & 0x800), (word & 0x8000) - (Processor.SP & 0x8000));
-                    Processor.PC += 2;
+                    tempWord = Processor.SP;
+                    Processor.SP = (ushort)(Processor.SP + ((sbyte)Memory.Data[Processor.PC]));
+                    halfcarry = ((tempWord & 0xfff) + (Processor.HL & 0xfff) & 0x1000) == 0x1000 ? 1 : 0;
+                    carry = Processor.SP + (sbyte)(Memory.Data[Processor.PC]) > 0xFFFF ? 1 : 0;
+                    Processor.SetFlags(0, 0, halfcarry, carry);
+                    Processor.PC++;
                     Processor.ClockCycles += 16;
                     break;
 
                 // INC
                 case 0x03:  // BC++
-                    word = (ushort)(Processor.B << 8 | Processor.C);
-                    word++;
-                    Processor.B = (byte)(word >> 8);
-                    Processor.C = (byte)word;
+                    tempWord = (ushort)(Processor.B << 8 | Processor.C);
+                    tempWord++;
+                    Processor.B = (byte)(tempWord >> 8);
+                    Processor.C = (byte)tempWord;
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0x13:  // DE++
-                    word = (ushort)(Processor.D << 8 | Processor.E);
-                    word++;
-                    Processor.D = (byte)(word >> 8);
-                    Processor.E = (byte)word;
+                    tempWord = (ushort)(Processor.D << 8 | Processor.E);
+                    tempWord++;
+                    Processor.D = (byte)(tempWord >> 8);
+                    Processor.E = (byte)tempWord;
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
@@ -970,18 +998,18 @@ namespace PancakeEmulator
 
                 // DEC
                 case 0x0B:  // BC--
-                    word = (ushort)(Processor.B << 8 | Processor.C);
-                    word--;
-                    Processor.B = (byte)(word >> 8);
-                    Processor.C = (byte)word;
+                    tempWord = (ushort)(Processor.B << 8 | Processor.C);
+                    tempWord--;
+                    Processor.B = (byte)(tempWord >> 8);
+                    Processor.C = (byte)tempWord;
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0x1B:  // DE--
-                    word = (ushort)(Processor.D << 8 | Processor.E);
-                    word--;
-                    Processor.D = (byte)(word >> 8);
-                    Processor.E = (byte)word;
+                    tempWord = (ushort)(Processor.D << 8 | Processor.E);
+                    tempWord--;
+                    Processor.D = (byte)(tempWord >> 8);
+                    Processor.E = (byte)tempWord;
                     Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
@@ -1003,28 +1031,35 @@ namespace PancakeEmulator
                 #region  Jump instructions 
                 // absolute jumps
                 case 0xC3:  // Unconditional + 2B immediate operands
-                    op_jmpfar();
+                    JumpFarOp();
                     Processor.ClockCycles += 12;
                     break;
 
                 case 0xC2:  // Conditional NZ + 2B immediate operands
-                    if (Processor.ZeroFlag == 0) op_jmpfar();
-                    else Processor.PC += 3;
+                    if (Processor.ZeroFlag == 0) 
+                        JumpFarOp();
+                    else 
+                        Processor.PC += 2;
                     Processor.ClockCycles += 12;
                     break;
                 case 0xCA:  // Conditional Z + 2B immediate operands
-                    if (Processor.ZeroFlag != 0) op_jmpfar();
-                    else Processor.PC += 3;
+                    if (Processor.ZeroFlag != 0) 
+                        JumpFarOp();
+                    else Processor.PC += 2;
                     Processor.ClockCycles += 12;
                     break;
                 case 0xD2:  // Conditional NC + 2B immediate operands
-                    if (Processor.CarryFlag == 0) op_jmpfar();
-                    else Processor.PC += 3;
+                    if (Processor.CarryFlag == 0) 
+                        JumpFarOp();
+                    else 
+                        Processor.PC += 2;
                     Processor.ClockCycles += 12;
                     break;
                 case 0xDA:  // Conditional C + 2B immediate operands
-                    if (Processor.CarryFlag != 0) op_jmpfar();
-                    else Processor.PC += 3;
+                    if (Processor.CarryFlag != 0)
+                        JumpFarOp();
+                    else 
+                        Processor.PC += 2;
                     Processor.ClockCycles += 12;
                     break;
                 case 0xE9:  // Unconditional jump to HL
@@ -1034,53 +1069,61 @@ namespace PancakeEmulator
 
                 // relative jumps
                 case 0x18:  // Unconditional + relative byte
-                    op_jmpnear();
+                    JumpNearOp();
                     Processor.ClockCycles += 8;
                     break;
                 case 0x20:  // Conditional NZ + relative byte
-                    if (Processor.ZeroFlag == 0) op_jmpnear();
-                    else Processor.PC += 2;
+                    if (Processor.ZeroFlag == 0)
+                        JumpNearOp();
                     Processor.ClockCycles += 8;
                     break;
                 case 0x28:  // Conditional Z + relative byte
-                    if (Processor.ZeroFlag != 0) op_jmpnear();
-                    else Processor.PC += 2;
+                    if (Processor.ZeroFlag != 0)
+                        JumpNearOp();
                     Processor.ClockCycles += 8;
                     break;
                 case 0x30:  // Conditional NC + relative byte
-                    if (Processor.CarryFlag == 0) op_jmpnear();
-                    else Processor.PC += 2;
+                    if (Processor.CarryFlag == 0)
+                        JumpNearOp();
                     Processor.ClockCycles += 8;
                     break;
                 case 0x38:  // Conditional C + relative byte
-                    if (Processor.CarryFlag != 0) op_jmpnear();
-                    else Processor.PC += 2;
+                    if (Processor.CarryFlag != 0)
+                        JumpNearOp();
                     Processor.ClockCycles += 8;
                     break;
 
                 // calls
                 case 0xCD:  // unconditional
-                    op_call();
+                    CallOp();
                     Processor.ClockCycles += 12;
                     break;
                 case 0xC4:  // Conditional NZ
-                    if (Processor.ZeroFlag == 0) op_call();
-                    else Processor.PC += 3;
+                    if (Processor.ZeroFlag == 0)
+                        CallOp();
+                    else 
+                        Processor.PC += 2;
                     Processor.ClockCycles += 12;
                     break;
                 case 0xCC:  // Conditional Z
-                    if (Processor.ZeroFlag != 0) op_call();
-                    else Processor.PC += 3;
+                    if (Processor.ZeroFlag != 0)
+                        CallOp();
+                    else 
+                        Processor.PC += 2;
                     Processor.ClockCycles += 12;
                     break;
                 case 0xD4:  // Conditional NC
-                    if (Processor.CarryFlag == 0) op_call();
-                    else Processor.PC += 3;
+                    if (Processor.CarryFlag == 0)
+                        CallOp();
+                    else 
+                        Processor.PC += 2;
                     Processor.ClockCycles += 12;
                     break;
                 case 0xDC:  // Conditional C
-                    if (Processor.CarryFlag != 0) op_call();
-                    else Processor.PC += 3;
+                    if (Processor.CarryFlag != 0)
+                        CallOp();
+                    else 
+                        Processor.PC += 2;
                     Processor.ClockCycles += 12;
                     break;
 
@@ -1120,32 +1163,32 @@ namespace PancakeEmulator
 
                 // returns
                 case 0xC9:  // unconditional
-                    op_return();
+                    ReturnOp();
                     Processor.ClockCycles += 8;
                     break;
                 case 0xD9:  // unconditional plus enable interrupts (RETI)
-                    op_return();
+                    ReturnOp();
                     Processor.EIsignaled = 1;
                     Processor.ClockCycles += 8;
                     break;
                 case 0xC0:  // Conditional NZ
-                    if (Processor.ZeroFlag == 0) op_return();
-                    else Processor.PC++;
+                    if (Processor.ZeroFlag == 0)
+                        ReturnOp();
                     Processor.ClockCycles += 8;
                     break;
                 case 0xC8:  // Conditional Z
-                    if (Processor.ZeroFlag != 0) op_return();
-                    else Processor.PC++;
+                    if (Processor.ZeroFlag != 0)
+                        ReturnOp();
                     Processor.ClockCycles += 8;
                     break;
                 case 0xD0:  // Conditional NC
-                    if (Processor.CarryFlag == 0) op_return();
-                    else Processor.PC++;
+                    if (Processor.CarryFlag == 0)
+                        ReturnOp();
                     Processor.ClockCycles += 8;
                     break;
                 case 0xD8:  // Conditional C
-                    if (Processor.CarryFlag != 0) op_return();
-                    else Processor.PC++;
+                    if (Processor.CarryFlag != 0)
+                        ReturnOp();
                     Processor.ClockCycles += 8;
                     break;
 
@@ -1157,123 +1200,106 @@ namespace PancakeEmulator
                 // OR
                 case 0xB7:  // A = A OR A = A !!!
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xB0:  // A = A OR B
                     Processor.A |= Processor.B;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xB1:  // A = A OR C
                     Processor.A |= Processor.C;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xB2:  // A = A OR D
                     Processor.A |= Processor.D;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xB3:  // A = A OR E
                     Processor.A |= Processor.E;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xB4:  // A = A OR H
                     Processor.A |= Processor.H;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xB5:  // A = A OR L
                     Processor.A |= Processor.L;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xB6:  // A = A OR (HL)
                     Processor.A |= Memory.ReadByte(Processor.HL);
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0xF6:  // A = A OR immediate
-                    Processor.A |= Memory.Data[Processor.PC + 1];
+                    Processor.A |= Memory.Data[Processor.PC];
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC += 2;
+                    Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
+
                 // XOR
                 case 0xAF:  // A = A XOR A = 0 !!!
                     Processor.A = 0;
                     Processor.SetFlags(1, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xA8:  // A = A XOR B
                     Processor.A ^= Processor.B;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xA9:  // A = A XOR C
                     Processor.A ^= Processor.C;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xAA:  // A = A XOR D
                     Processor.A ^= Processor.D;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xAB:  // A = A XOR E
                     Processor.A ^= Processor.E;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xAC:  // A = A XOR H
                     Processor.A ^= Processor.H;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xAD:  // A = A XOR L
                     Processor.A ^= Processor.L;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xAE:  // A = A XOR (HL)
                     Processor.A ^= Memory.ReadByte(Processor.HL);
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0xEE:  // A = A XOR immediate
-                    Processor.A ^= Memory.Data[Processor.PC + 1];
+                    Processor.A ^= Memory.Data[Processor.PC];
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 0, 0);
-                    Processor.PC += 2;
+                    Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
+
                 // AND
                 case 0xA7:  // A = A AND A
-                    Processor.A &= Processor.A;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 1, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xA0:  // A = A AND B
                     Processor.A &= Processor.B;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 1, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xA1:  // A = A AND C
@@ -1285,37 +1311,32 @@ namespace PancakeEmulator
                 case 0xA2:  // A = A AND D
                     Processor.A &= Processor.D;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 1, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xA3:  // A = A AND E
                     Processor.A &= Processor.E;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 1, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xA4:  // A = A AND H
                     Processor.A &= Processor.H;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 1, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xA5:  // A = A AND L
                     Processor.A &= Processor.L;
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 1, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0xA6:  // A = A AND (HL)
                     Processor.A &= Memory.ReadByte(Processor.HL);
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 1, 0);
-                    Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
                 case 0xE6:  // A = A AND immediate
-                    Processor.A &= Memory.Data[Processor.PC + 1];
+                    Processor.A &= Memory.Data[Processor.PC];
                     Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, 1, 0);
-                    Processor.PC += 2;
+                    Processor.PC++;
                     Processor.ClockCycles += 8;
                     break;
 
@@ -1324,22 +1345,20 @@ namespace PancakeEmulator
                 #region  Miscellaneous instructions 
 
                 case 0x07:  // Rotate A left
-                    Processor.A = op_rlc(Processor.A);
-                    Processor.PC++;
+                    Processor.A = RlcOp(Processor.A);
                     Processor.ClockCycles += 4;
                     break;
                 case 0x17:  // Rotate A left with carry
-                    Processor.A = op_rl(Processor.A);
-                    Processor.PC++;
+                    Processor.A = RlOp(Processor.A);
                     Processor.ClockCycles += 4;
                     break;
                 case 0x0F:  // Rotate A right
-                    Processor.A = op_rrc(Processor.A);
+                    Processor.A = RrcOp(Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
                 case 0x1F:  // Rotate A right with carry
-                    Processor.A = op_rr(Processor.A);
+                    Processor.A = RrOp(Processor.A);
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
@@ -1351,343 +1370,343 @@ namespace PancakeEmulator
                     {
                         // SWAPS
                         case 0x37:  // SWAP A
-                            Processor.A = op_swap(Processor.A);
+                            Processor.A = SwapOp(Processor.A);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x30:  // SWAP B
-                            Processor.B = op_swap(Processor.B);
+                            Processor.B = SwapOp(Processor.B);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x31:  // SWAP C
-                            Processor.C = op_swap(Processor.C);
+                            Processor.C = SwapOp(Processor.C);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x32:  // SWAP D
-                            Processor.D = op_swap(Processor.D);
+                            Processor.D = SwapOp(Processor.D);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x33:  // SWAP E
-                            Processor.E = op_swap(Processor.E);
+                            Processor.E = SwapOp(Processor.E);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x34:  // SWAP H
-                            Processor.H = op_swap(Processor.H);
+                            Processor.H = SwapOp(Processor.H);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x35:  // SWAP L
-                            Processor.L = op_swap(Processor.L);
+                            Processor.L = SwapOp(Processor.L);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x36:  // SWAP (HL)
-                            value = op_swap(Memory.ReadByte(Processor.HL));
-                            Memory.WriteByte(Processor.HL, value);
+                            tempByte = SwapOp(Memory.ReadByte(Processor.HL));
+                            Memory.WriteByte(Processor.HL, tempByte);
                             Processor.ClockCycles += 16;
                             break;
                         // ROTATIONS
                         case 0x07:  // Rotate A left
-                            Processor.A = op_rlc(Processor.A);
+                            Processor.A = RlcOp(Processor.A);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x00:  // Rotate B left
-                            Processor.B = op_rlc(Processor.B);
+                            Processor.B = RlcOp(Processor.B);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x01:  // Rotate C left
-                            Processor.C = op_rlc(Processor.C);
+                            Processor.C = RlcOp(Processor.C);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x02:  // Rotate D left
-                            Processor.D = op_rlc(Processor.D);
+                            Processor.D = RlcOp(Processor.D);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x03:  // Rotate E left
-                            Processor.E = op_rlc(Processor.E);
+                            Processor.E = RlcOp(Processor.E);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x04:  // Rotate H left
-                            Processor.H = op_rlc(Processor.H);
+                            Processor.H = RlcOp(Processor.H);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x05:  // Rotate L left
-                            Processor.L = op_rlc(Processor.L);
+                            Processor.L = RlcOp(Processor.L);
                             Processor.ClockCycles += 8;
                             break;
                         case 0x06:  // Rotate (HL) left
-                            value = op_rlc(Memory.ReadByte(Processor.HL));
-                            Memory.WriteByte(Processor.HL, value);
+                            tempByte = RlcOp(Memory.ReadByte(Processor.HL));
+                            Memory.WriteByte(Processor.HL, tempByte);
                             Processor.ClockCycles += 16;
                             break;
 
                         // SETS
                         case 0xC7:  // Set 0, A
-                            Processor.A = op_setbit(0, Processor.A);
+                            Processor.A = SetBitOp(0, Processor.A);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xCF:  // Set 1, A
-                            Processor.A = op_setbit(1, Processor.A);
+                            Processor.A = SetBitOp(1, Processor.A);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xD7:  // Set 2, A
-                            Processor.A = op_setbit(2, Processor.A);
+                            Processor.A = SetBitOp(2, Processor.A);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xDF:  // Set 3, A
-                            Processor.A = op_setbit(3, Processor.A);
+                            Processor.A = SetBitOp(3, Processor.A);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xE7:  // Set 4, A
-                            Processor.A = op_setbit(4, Processor.A);
+                            Processor.A = SetBitOp(4, Processor.A);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xEF:  // Set 5, A
-                            Processor.A = op_setbit(5, Processor.A);
+                            Processor.A = SetBitOp(5, Processor.A);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xF7:  // Set 6, A
-                            Processor.A = op_setbit(6, Processor.A);
+                            Processor.A = SetBitOp(6, Processor.A);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xFF:  // Set 7, A
-                            Processor.A = op_setbit(7, Processor.A);
+                            Processor.A = SetBitOp(7, Processor.A);
                             Processor.ClockCycles += 8;
                             break;
 
                         case 0xC0:  // Set 0, B
-                            Processor.B = op_setbit(0, Processor.B);
+                            Processor.B = SetBitOp(0, Processor.B);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xC8:  // Set 1, B
-                            Processor.B = op_setbit(1, Processor.B);
+                            Processor.B = SetBitOp(1, Processor.B);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xD0:  // Set 2, B
-                            Processor.B = op_setbit(2, Processor.B);
+                            Processor.B = SetBitOp(2, Processor.B);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xD8:  // Set 3, B
-                            Processor.B = op_setbit(3, Processor.B);
+                            Processor.B = SetBitOp(3, Processor.B);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xE0:  // Set 4, B
-                            Processor.B = op_setbit(4, Processor.B);
+                            Processor.B = SetBitOp(4, Processor.B);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xE8:  // Set 5, B
-                            Processor.B = op_setbit(5, Processor.B);
+                            Processor.B = SetBitOp(5, Processor.B);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xF0:  // Set 6, B
-                            Processor.B = op_setbit(6, Processor.B);
+                            Processor.B = SetBitOp(6, Processor.B);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xF8:  // Set 7, B
-                            Processor.B = op_setbit(7, Processor.B);
+                            Processor.B = SetBitOp(7, Processor.B);
                             Processor.ClockCycles += 8;
                             break;
 
                         case 0xC1:  // Set 0, C
-                            Processor.C = op_setbit(0, Processor.C);
+                            Processor.C = SetBitOp(0, Processor.C);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xC9:  // Set 1, C
-                            Processor.C = op_setbit(1, Processor.C);
+                            Processor.C = SetBitOp(1, Processor.C);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xD1:  // Set 2, C
-                            Processor.C = op_setbit(2, Processor.C);
+                            Processor.C = SetBitOp(2, Processor.C);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xD9:  // Set 3, C
-                            Processor.C = op_setbit(3, Processor.C);
+                            Processor.C = SetBitOp(3, Processor.C);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xE1:  // Set 4, C
-                            Processor.C = op_setbit(4, Processor.C);
+                            Processor.C = SetBitOp(4, Processor.C);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xE9:  // Set 5, C
-                            Processor.C = op_setbit(5, Processor.C);
+                            Processor.C = SetBitOp(5, Processor.C);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xF1:  // Set 6, C
-                            Processor.C = op_setbit(6, Processor.C);
+                            Processor.C = SetBitOp(6, Processor.C);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xF9:  // Set 7, C
-                            Processor.C = op_setbit(7, Processor.C);
+                            Processor.C = SetBitOp(7, Processor.C);
                             Processor.ClockCycles += 8;
                             break;
 
                         case 0xC2:  // Set 0, D
-                            Processor.D = op_setbit(0, Processor.D);
+                            Processor.D = SetBitOp(0, Processor.D);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xCA:  // Set 1, D
-                            Processor.D = op_setbit(1, Processor.D);
+                            Processor.D = SetBitOp(1, Processor.D);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xD2:  // Set 2, D
-                            Processor.D = op_setbit(2, Processor.D);
+                            Processor.D = SetBitOp(2, Processor.D);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xDA:  // Set 3, D
-                            Processor.D = op_setbit(3, Processor.D);
+                            Processor.D = SetBitOp(3, Processor.D);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xE2:  // Set 4, D
-                            Processor.D = op_setbit(4, Processor.D);
+                            Processor.D = SetBitOp(4, Processor.D);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xEA:  // Set 5, D
-                            Processor.D = op_setbit(5, Processor.D);
+                            Processor.D = SetBitOp(5, Processor.D);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xF2:  // Set 6, D
-                            Processor.D = op_setbit(6, Processor.D);
+                            Processor.D = SetBitOp(6, Processor.D);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xFA:  // Set 7, D
-                            Processor.D = op_setbit(7, Processor.D);
+                            Processor.D = SetBitOp(7, Processor.D);
                             Processor.ClockCycles += 8;
                             break;
 
                         case 0xC3:  // Set 0, E
-                            Processor.E = op_setbit(0, Processor.E);
+                            Processor.E = SetBitOp(0, Processor.E);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xCB:  // Set 1, E
-                            Processor.E = op_setbit(1, Processor.E);
+                            Processor.E = SetBitOp(1, Processor.E);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xD3:  // Set 2, E
-                            Processor.E = op_setbit(2, Processor.E);
+                            Processor.E = SetBitOp(2, Processor.E);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xDB:  // Set 3, E
-                            Processor.E = op_setbit(3, Processor.E);
+                            Processor.E = SetBitOp(3, Processor.E);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xE3:  // Set 4, E
-                            Processor.E = op_setbit(4, Processor.E);
+                            Processor.E = SetBitOp(4, Processor.E);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xEB:  // Set 5, E
-                            Processor.E = op_setbit(5, Processor.E);
+                            Processor.E = SetBitOp(5, Processor.E);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xF3:  // Set 6, E
-                            Processor.E = op_setbit(6, Processor.E);
+                            Processor.E = SetBitOp(6, Processor.E);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xFB:  // Set 7, E
-                            Processor.E = op_setbit(7, Processor.E);
+                            Processor.E = SetBitOp(7, Processor.E);
                             Processor.ClockCycles += 8;
                             break;
 
                         case 0xC4:  // Set 0, H
-                            Processor.H = op_setbit(0, Processor.H);
+                            Processor.H = SetBitOp(0, Processor.H);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xCC:  // Set 1, H
-                            Processor.H = op_setbit(1, Processor.H);
+                            Processor.H = SetBitOp(1, Processor.H);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xD4:  // Set 2, H
-                            Processor.H = op_setbit(2, Processor.H);
+                            Processor.H = SetBitOp(2, Processor.H);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xDC:  // Set 3, H
-                            Processor.H = op_setbit(3, Processor.H);
+                            Processor.H = SetBitOp(3, Processor.H);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xE4:  // Set 4, H
-                            Processor.H = op_setbit(4, Processor.H);
+                            Processor.H = SetBitOp(4, Processor.H);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xEC:  // Set 5, H
-                            Processor.H = op_setbit(5, Processor.H);
+                            Processor.H = SetBitOp(5, Processor.H);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xF4:  // Set 6, H
-                            Processor.H = op_setbit(6, Processor.H);
+                            Processor.H = SetBitOp(6, Processor.H);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xFC:  // Set 7, H
-                            Processor.H = op_setbit(7, Processor.H);
+                            Processor.H = SetBitOp(7, Processor.H);
                             Processor.ClockCycles += 8;
                             break;
 
                         case 0xC5:  // Set 0, L
-                            Processor.L = op_setbit(0, Processor.L);
+                            Processor.L = SetBitOp(0, Processor.L);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xCD:  // Set 1, L
-                            Processor.L = op_setbit(1, Processor.L);
+                            Processor.L = SetBitOp(1, Processor.L);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xD5:  // Set 2, L
-                            Processor.L = op_setbit(2, Processor.L);
+                            Processor.L = SetBitOp(2, Processor.L);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xDD:  // Set 3, L
-                            Processor.L = op_setbit(3, Processor.L);
+                            Processor.L = SetBitOp(3, Processor.L);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xE5:  // Set 4, L
-                            Processor.L = op_setbit(4, Processor.L);
+                            Processor.L = SetBitOp(4, Processor.L);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xED:  // Set 5, L
-                            Processor.L = op_setbit(5, Processor.L);
+                            Processor.L = SetBitOp(5, Processor.L);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xF5:  // Set 6, L
-                            Processor.L = op_setbit(6, Processor.L);
+                            Processor.L = SetBitOp(6, Processor.L);
                             Processor.ClockCycles += 8;
                             break;
                         case 0xFD:  // Set 7, L
-                            Processor.L = op_setbit(7, Processor.L);
+                            Processor.L = SetBitOp(7, Processor.L);
                             Processor.ClockCycles += 8;
                             break;
 
                         case 0xC6:  // Set 0, (HL)
-                            value = op_setbit(0, Memory.ReadByte(Processor.HL));
-                            Memory.WriteByte(Processor.HL, value);
+                            tempByte = SetBitOp(0, Memory.ReadByte(Processor.HL));
+                            Memory.WriteByte(Processor.HL, tempByte);
                             Processor.ClockCycles += 16;
                             break;
                         case 0xCE:  // Set 1, (HL)
-                            value = op_setbit(1, Memory.ReadByte(Processor.HL));
-                            Memory.WriteByte(Processor.HL, value);
+                            tempByte = SetBitOp(1, Memory.ReadByte(Processor.HL));
+                            Memory.WriteByte(Processor.HL, tempByte);
                             Processor.ClockCycles += 16;
                             break;
                         case 0xD6:  // Set 2, (HL)
-                            value = op_setbit(2, Memory.ReadByte(Processor.HL));
-                            Memory.WriteByte(Processor.HL, value);
+                            tempByte = SetBitOp(2, Memory.ReadByte(Processor.HL));
+                            Memory.WriteByte(Processor.HL, tempByte);
                             Processor.ClockCycles += 16;
                             break;
                         case 0xDE:  // Set 3, (HL)
-                            value = op_setbit(3, Memory.ReadByte(Processor.HL));
-                            Memory.WriteByte(Processor.HL, value);
+                            tempByte = SetBitOp(3, Memory.ReadByte(Processor.HL));
+                            Memory.WriteByte(Processor.HL, tempByte);
                             Processor.ClockCycles += 16;
                             break;
                         case 0xE6:  // Set 4, (HL)
-                            value = op_setbit(4, Memory.ReadByte(Processor.HL));
-                            Memory.WriteByte(Processor.HL, value);
+                            tempByte = SetBitOp(4, Memory.ReadByte(Processor.HL));
+                            Memory.WriteByte(Processor.HL, tempByte);
                             Processor.ClockCycles += 16;
                             break;
                         case 0xEE:  // Set 5, (HL)
-                            value = op_setbit(5, Memory.ReadByte(Processor.HL));
-                            Memory.WriteByte(Processor.HL, value);
+                            tempByte = SetBitOp(5, Memory.ReadByte(Processor.HL));
+                            Memory.WriteByte(Processor.HL, tempByte);
                             Processor.ClockCycles += 16;
                             break;
                         case 0xF6:  // Set 6, (HL)
-                            value = op_setbit(6, Memory.ReadByte(Processor.HL));
-                            Memory.WriteByte(Processor.HL, value);
+                            tempByte = SetBitOp(6, Memory.ReadByte(Processor.HL));
+                            Memory.WriteByte(Processor.HL, tempByte);
                             Processor.ClockCycles += 16;
                             break;
                         case 0xFE:  // Set 7, (HL)
-                            value = op_setbit(7, Memory.ReadByte(Processor.HL));
-                            Memory.WriteByte(Processor.HL, value);
+                            tempByte = SetBitOp(7, Memory.ReadByte(Processor.HL));
+                            Memory.WriteByte(Processor.HL, tempByte);
                             Processor.ClockCycles += 16;
                             break;
 
@@ -1697,9 +1716,8 @@ namespace PancakeEmulator
 
                         // BIT
 
-
                         default:
-                            UnknownOperand = true;
+                            err = true;
                             Processor.ClockCycles += 0;
                             Processor.PC -= 2;
                             break;
@@ -1710,24 +1728,22 @@ namespace PancakeEmulator
 
                 case 0x2F:  // Complement A
                     Processor.A = (byte)~Processor.A;
-                    Processor.SubtractFlag = 1;
-                    Processor.HalfCarryFlag = 1;
-                    Processor.PC++;
+                    Processor.SubtractionFlag = 1;
+                    Processor.HalfFlag = 1;
                     Processor.ClockCycles += 4;
                     break;
 
                 case 0x3F:  // Complement Carry
                     Processor.CarryFlag ^= 1;
-                    Processor.SubtractFlag = 0;
-                    Processor.HalfCarryFlag = 0;
-                    Processor.PC++;
+                    Processor.SubtractionFlag = 0;
+                    Processor.HalfFlag = 0;
                     Processor.ClockCycles += 4;
                     break;
 
                 case 0x37:  // Set Carry
                     Processor.CarryFlag = 1;
-                    Processor.SubtractFlag = 0;
-                    Processor.HalfCarryFlag = 0;
+                    Processor.SubtractionFlag = 0;
+                    Processor.HalfFlag = 0;
                     Processor.PC++;
                     Processor.ClockCycles += 4;
                     break;
@@ -1737,7 +1753,7 @@ namespace PancakeEmulator
                     Processor.ClockCycles += 4;
                     break;
 
-                case 0x76:  // HALT
+                /*case 0x76:  // HALT
                     if (Processor.IME) Processor.CPUHalt = true;
                     else Processor.SkipPCCounting = true;
                     Processor.PC++;
@@ -1745,7 +1761,6 @@ namespace PancakeEmulator
                     break;
 
                 case 0x10:  // STOP
-                    Processor.PC++;
                     if (Memory.Data[Processor.PC] != 0)   // check if next operand is 0 (has to be!)
                     {
                         UnknownOperand = true;
@@ -1763,7 +1778,7 @@ namespace PancakeEmulator
                     Processor.DIsignaled = 1;  // Interrupts Mode will change after next opcode, so signal it
                     Processor.PC++;
                     Processor.ClockCycles += 4;
-                    break;
+                    break;*/
 
                 case 0xFB:  // Enable Interrupts (EI)
                     Processor.EIsignaled = 1;  // same here, will take effect AFTER THE NEXT instruction
@@ -1775,15 +1790,100 @@ namespace PancakeEmulator
 
                 // In case OPcode isn't implemented or sth. went wrong, halt emulation
                 default:
-                    UnknownOPcode = true;
+                    err = true;
                     Processor.ClockCycles += 0;
                     break;
             }
         }
 
-        private void AdcOp(byte p)
+        private byte SetBitOp(int p1, byte p2)
         {
             throw new NotImplementedException();
+        }
+
+        private byte SwapOp(byte p)
+        {
+            throw new NotImplementedException();
+        }
+
+        private byte RrOp(byte p)
+        {
+            throw new NotImplementedException();
+        }
+
+        private byte RrcOp(byte p)
+        {
+            throw new NotImplementedException();
+        }
+
+        private byte RlOp(byte p)
+        {
+            throw new NotImplementedException();
+        }
+
+        private byte RlcOp(byte p)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void JumpFarOp()
+        {
+            throw new NotImplementedException();
+        }
+
+        private void CallOp()
+        {
+            throw new NotImplementedException();
+        }
+
+        private void JumpNearOp()
+        {
+            throw new NotImplementedException();
+        }
+
+        private void Add16BitOp(ushort p)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void CompareOp(byte p)
+        {
+            throw new NotImplementedException();
+        }
+
+        private byte DecOp(byte p)
+        {
+            byte a = p;
+            a--;
+            Processor.SetFlags((a == 0) ? 1 : 0, 0, (((p & 0x10) - (a & 0x10)) & 0xf) == 0xf ? 1 : 0, Processor.CarryFlag);
+            return a;
+        }
+
+        private byte IncOp(byte p)
+        {
+            byte a = p;
+            a++;
+            Processor.SetFlags((a == 0) ? 1 : 0, 0, (((a & 0xf) + (p & 0xf)) & 0x10) == 0x10 ? 1 : 0, Processor.CarryFlag);
+            return a;
+        }
+
+        private void SbcOp(byte p)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void SubOp(byte p)
+        {
+            throw new NotImplementedException();
+        }
+
+        //Add p to A with carry bit
+        public void AdcOp(byte p)
+        {
+            byte a = Processor.A;
+            Processor.A += (byte)(a + Processor.CarryFlag);
+            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (((a & 0xf) + (Processor.A & 0xf)) & 0x10) == 0x10 ? 1 : 0,
+                Processor.A < a+Processor.CarryFlag ? 1 : 0);
         }
 
         //return from a subroutine
@@ -1814,6 +1914,7 @@ namespace PancakeEmulator
 
         public void Push16BitOp(ushort val)
         {
+            throw new NotImplementedException();
         }
 
         public byte PopOp()
