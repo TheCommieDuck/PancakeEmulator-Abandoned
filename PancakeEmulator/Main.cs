@@ -35,13 +35,7 @@ namespace PancakeEmulator
             Processor.Reset();
             //if the type is 0 it's a rom only cartridge giving it a different address space, or something.
             for (int i = 0; i < 0x8000; ++i)
-            {
                 Memory.Data[i] = rom.Data[i];
-                if (rom.Data[i] != 0 && i >= 0x4000)
-                {
-                    Console.WriteLine(rom.Data[i]);
-                }
-            }
 
             //ignore the checking stuff, it's not really needed to be honest
             //nintendo logo check, complement check, checksum (not used regardless)
@@ -53,6 +47,8 @@ namespace PancakeEmulator
         {
             //get the instruction and increment the program count
             IsRunning = true;
+            System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
+            watch.Start();
             while (IsRunning)
             {
                 if (LYReset >= 456)
@@ -70,8 +66,8 @@ namespace PancakeEmulator
                 }
                 byte instr = Memory.Data[Processor.PC];
                 ushort currentPC = Processor.PC; //then we move the program counter forward for data reading
-                Console.WriteLine("Performing operation {0:X2} at {1:X2}", instr, Processor.PC);
-                if (currentPC == 0xC470/*D*/) //at c470 we are at 857e instructions
+                //Console.WriteLine("Performing operation {0:X2} at {1:X2}", instr, Processor.PC);
+                if (currentPC == 0xC182/*D*/) //at c470 we are at 857e instructions
                     System.Diagnostics.Debugger.Break();
                 Processor.PC++;
                 //0x0210 is successful
