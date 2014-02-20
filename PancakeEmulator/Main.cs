@@ -71,7 +71,7 @@ namespace PancakeEmulator
                 byte instr = Memory.Data[Processor.PC];
                 ushort currentPC = Processor.PC; //then we move the program counter forward for data reading
                 Console.WriteLine("Performing operation {0:X2} at {1:X2}", instr, Processor.PC);
-                if (currentPC == 0xC47D)
+                if (currentPC == 0xC470/*D*/) //at c470 we are at 857e instructions
                     System.Diagnostics.Debugger.Break();
                 Processor.PC++;
                 //if (instr == 0xE0)
@@ -91,78 +91,53 @@ namespace PancakeEmulator
             ushort tempWord;
             byte tempByte;
             int halfcarry, carry;
+            ushort address; //a temporary address
             bool err = false;
             uint oldClockCycle = Processor.ClockCycles;
             switch (opcode)
             {
-                #region  Load instructions 
+                #region  Immediate Load Instructions 
+
                 // immediate loads
                 case 0x3E:  // A <- immediate  
-                    Processor.A = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    ImmediateLoadOp(ref Processor.A);
                     break;
                 case 0x06:  // B <- immediate  
-                    Processor.B = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    ImmediateLoadOp(ref Processor.B);
                     break;
                 case 0x0E:  // C <- immediate  
-                    Processor.C = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    ImmediateLoadOp(ref Processor.C);
                     break;
                 case 0x16:  // D <- immediate  
-                    Processor.D = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    ImmediateLoadOp(ref Processor.D);
                     break;
                 case 0x1E:  // E <- immediate  
-                    Processor.E = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    ImmediateLoadOp(ref Processor.E);
                     break;
                 case 0x26:  // H <- immediate  
-                    Processor.H = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    ImmediateLoadOp(ref Processor.H);
                     break;
                 case 0x2E:  // L <- immediate  
-                    Processor.L = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    ImmediateLoadOp(ref Processor.L);
                     break;
                 case 0x01:  // BC <- immediate  
-                    Processor.C = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.B = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.ClockCycles += 12;
+                    Immediate16bitLoadOp(ref Processor.C, ref Processor.B);
                     break;
                 case 0x11:  // DE <- immediate  
-                    Processor.E = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.D = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.ClockCycles += 12;
+                    Immediate16bitLoadOp(ref Processor.E, ref Processor.D);
                     break;
                 case 0x21:  // HL <- immediate  
-                    Processor.L = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.H = Memory.Data[Processor.PC];
-                    Processor.PC++;
-                    Processor.ClockCycles += 12;
+                    Immediate16bitLoadOp(ref Processor.L, ref Processor.H);
                     break;
                 case 0x31:  // SP <- immediate
-                    Processor.SP = Memory.ReadWord(Processor.PC);
-                    Processor.PC += 2;
-                    Processor.ClockCycles += 12;
+                    Immediate16bitLoadOp(ref Processor.SP);
                     break;
                 case 0x36:  // (HL) <- immediate  the adress pointed at by HL
-                    Memory.WriteByte(Processor.HL, Memory.Data[Processor.PC]);
-                    Processor.PC++;
-                    Processor.ClockCycles += 12;
+                    ImmediateMemoryLocationLoadOp(Processor.HL);
                     break;
+#endregion
+
+                #region Memory To Register Transfer Instructions
 
                 // memory to register transfer
                 /*case 0xF2:    // A <- (0xFF00 + C)
@@ -172,366 +147,288 @@ namespace PancakeEmulator
                     Processor.ClockCycles += 8;
                     break; supposedly removed.*/
                 case 0x0A:    // A <- (BC)
-                    tempWord = (ushort)(Processor.B << 8 | Processor.C);
-                    Processor.A = Memory.ReadByte(tempWord);
-                    Processor.ClockCycles += 8;
+                    MemoryToRegisterOp(ref Processor.A, (ushort)(Processor.B << 8 | Processor.C));
                     break;
                 case 0x1A:    // A <- (DE)
-                    tempWord = (ushort)(Processor.D << 8 | Processor.E);
-                    Processor.A = Memory.ReadByte(tempWord);
-                    Processor.ClockCycles += 8;
+                    MemoryToRegisterOp(ref Processor.A, (ushort)(Processor.D << 8 | Processor.E));
                     break;
                 case 0x7E:  // A <- (HL)
-                    Processor.A = Memory.ReadByte(Processor.HL);
-                    Processor.ClockCycles += 8;
+                    MemoryToRegisterOp(ref Processor.A, Processor.HL);
                     break;
                 case 0x46:  // B <- (HL)
-                    Processor.B = Memory.ReadByte(Processor.HL);
-                    Processor.ClockCycles += 8;
+                    MemoryToRegisterOp(ref Processor.B, Processor.HL);
                     break;
                 case 0x4E:  // C <- (HL)
-                    Processor.C = Memory.ReadByte(Processor.HL);
-                    Processor.ClockCycles += 8;
+                    MemoryToRegisterOp(ref Processor.C, Processor.HL);
                     break;
                 case 0x56:  // D <- (HL)
-                    Processor.D = Memory.ReadByte(Processor.HL);
-                    Processor.ClockCycles += 8;
+                    MemoryToRegisterOp(ref Processor.D, Processor.HL);
                     break;
                 case 0x5E:  // E <- (HL)
-                    Processor.E = Memory.ReadByte(Processor.HL);
-                    Processor.ClockCycles += 8;
+                    MemoryToRegisterOp(ref Processor.E, Processor.HL);
                     break;
                 case 0x66:  // H <- (HL)
-                    Processor.H = Memory.ReadByte(Processor.HL);
-                    Processor.ClockCycles += 8;
+                    MemoryToRegisterOp(ref Processor.H, Processor.HL);
                     break;
                 case 0x6E:  // L <- (HL)
-                    Processor.L = Memory.ReadByte(Processor.HL);
-                    Processor.ClockCycles += 8;
+                    MemoryToRegisterOp(ref Processor.L, Processor.HL);
                     break;
-                case 0x2A:  // A <- (HL), HL++ Maybe flags?
-                    Processor.A = Memory.ReadByte(Processor.HL);
+                case 0x2A:  // A <- (HL), HL++. No flags.
+                    MemoryToRegisterOp(ref Processor.A, Processor.HL);
                     Processor.HL++;
-                    Processor.ClockCycles += 8;
                     break;
                 case 0xFA:  // A <- (nn immediate)
-                    Processor.A = Memory.ReadByte(Memory.ReadWord(Processor.PC));
-                    Processor.PC += 2;
-                    Processor.ClockCycles += 16;
+                    MemoryToRegisterOp(ref Processor.A, Memory.ReadWord(Processor.PC));
+                    Processor.PC += 2; //since we used 16bit operand thingy
+                    Processor.ClockCycles += 8; //extra cycles for the extra read
                     break;
                 case 0xF0:  // A <- (0xFF00+ n immediate)
-                    tempWord = (ushort)(0xFF00 + Memory.Data[Processor.PC]);
-                    Processor.A = Memory.ReadByte(tempWord);
-                    Processor.PC++;
-                    Processor.ClockCycles += 12;
+                    MemoryToRegisterOp(ref Processor.A, (ushort)(0xFF00 + Memory.Data[Processor.PC]));
+                    Processor.PC++; //since it is a 2 operand op
+                    Processor.ClockCycles += 4; //extra cycles
                     break;
+#endregion
 
-                //TODO: here onwards
-                // register to memory transfer
+                #region Register To Memory Transfer Instructions
+
                 case 0xE2:    // (0xFF00 + C) <- A
-                    tempWord = (ushort)(0xFF00 + Processor.C);
-                    Memory.WriteByte(tempWord, Processor.A);
+                    RegisterToMemoryOp((ushort)(0xFF00 + Processor.C), Processor.A);
                     Processor.ClockCycles += 8;
                     break;
                 case 0x02:  // (BC) <- A
-                    tempWord = (ushort)(Processor.B << 8 | Processor.C);
-                    Memory.WriteByte(tempWord, Processor.A);
-                    Processor.ClockCycles += 8;
+                    RegisterToMemoryOp((ushort)(Processor.B << 8 | Processor.C), Processor.A);
                     break;
                 case 0x12:  // (DE) <- A
-                    tempWord = (ushort)(Processor.D << 8 | Processor.E);
-                    Memory.WriteByte(tempWord, Processor.A);
-                    Processor.ClockCycles += 8;
+                    RegisterToMemoryOp((ushort)(Processor.D << 8 | Processor.E), Processor.A);
                     break;
                 case 0x77:  // (HL) <- A
-                    Memory.WriteByte(Processor.HL, Processor.A);
-                    Processor.ClockCycles += 8;
+                    RegisterToMemoryOp(Processor.HL, Processor.A);
                     break;
                 case 0x70:  // (HL) <- B
-                    Memory.WriteByte(Processor.HL, Processor.B);
-                    Processor.ClockCycles += 8;
+                    RegisterToMemoryOp(Processor.HL, Processor.A);
                     break;
                 case 0x71:  // (HL) <- C
-                    Memory.WriteByte(Processor.HL, Processor.C);
-                    Processor.ClockCycles += 8;
+                    RegisterToMemoryOp(Processor.HL, Processor.A);
                     break;
                 case 0x72:  // (HL) <- D
-                    Memory.WriteByte(Processor.HL, Processor.D);
-                    Processor.ClockCycles += 8;
+                    RegisterToMemoryOp(Processor.HL, Processor.A);
                     break;
                 case 0x73:  // (HL) <- E
-                    Memory.WriteByte(Processor.HL, Processor.E);
-                    Processor.ClockCycles += 8;
+                    RegisterToMemoryOp(Processor.HL, Processor.A);
                     break;
                 case 0x74:  // (HL) <- H
-                    Memory.WriteByte(Processor.HL, Processor.H);
-                    Processor.ClockCycles += 8;
+                    RegisterToMemoryOp(Processor.HL, Processor.A);
                     break;
                 case 0x75:  // (HL) <- L
-                    Memory.WriteByte(Processor.HL, Processor.L);
-                    Processor.ClockCycles += 8;
+                    RegisterToMemoryOp(Processor.HL, Processor.A);
                     break;
                 case 0xEA:  // (nn) <- A
-                    tempWord = Memory.ReadWord(Processor.PC);
-                    Memory.WriteByte(tempWord, Processor.A);
-                    Processor.PC += 2;
-                    Processor.ClockCycles += 16;
+                    RegisterToMemoryOp(Memory.ReadWord(Processor.PC), Processor.A);
+                    Processor.PC += 2; //extra increment for operands
+                    Processor.ClockCycles += 8;
                     break;
                 case 0xE0:  // (0xFF00+ n immediate) <- A
-                    tempWord = (ushort)(0xFF00 + Memory.Data[Processor.PC]);
-                    Memory.WriteByte(tempWord, Processor.A);
-                    Processor.PC++;
-                    Processor.ClockCycles += 12;
+                    RegisterToMemoryOp((ushort)(0xFF00 + Memory.Data[Processor.PC]), Processor.A);
+                    Processor.PC++; //extra increment
+                    Processor.ClockCycles += 4;
                     break;
                 case 0x32:  // (HL) <- A, HL--    
-                    Memory.WriteByte(Processor.HL, Processor.A);
+                    RegisterToMemoryOp(Processor.HL, Processor.A);
                     Processor.HL--;
-                    Processor.H = (byte)(Processor.HL >> 8);
-                    Processor.L = (byte)Processor.HL;
-                    Processor.ClockCycles += 8;
                     break;
                 case 0x22:  // (HL) <- A, HL++    
-                    Memory.WriteByte(Processor.HL, Processor.A);
+                    RegisterToMemoryOp(Processor.HL, Processor.A);
                     Processor.HL++;
-                    Processor.H = (byte)(Processor.HL >> 8);
-                    Processor.L = (byte)Processor.HL;
-                    Processor.ClockCycles += 8;
                     break;
-                case 0x08:  // (nn) <- SP
-                    tempWord = Memory.ReadWord(Processor.PC);
-                    Memory.WriteWord(tempWord, Processor.SP);
+                case 0x08:  // (nn) <- SP No macro for this one
+                    Memory.WriteWord(Memory.ReadWord(Processor.PC), Processor.SP);
                     Processor.PC += 2;
                     Processor.ClockCycles += 20;
                     break;
+#endregion
 
-                // register to register transfer
+                #region Register To Register Transfer Instructions
+
                 case 0x7F:  // A <- A
                     Processor.ClockCycles += 4;
                     break;
                 case 0x78:  // A <- B
-                    Processor.A = Processor.B;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.A, Processor.B);
                     break;
                 case 0x79:  // A <- C
-                    Processor.A = Processor.C;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.A, Processor.C);
                     break;
                 case 0x7A:  // A <- D
-                    Processor.A = Processor.D;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.A, Processor.D);
                     break;
                 case 0x7B:  // A <- E
-                    Processor.A = Processor.E;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.A, Processor.E);
                     break;
                 case 0x7C:  // A <- H
-                    Processor.A = Processor.H;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.A, Processor.H);
                     break;
                 case 0x7D:  // A <- L
-                    Processor.A = Processor.L;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.A, Processor.L);
                     break;
                 case 0x47:  // B <- A
-                    Processor.B = Processor.A;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.B, Processor.A);
                     break;
                 case 0x40:  // B <- B
                     Processor.ClockCycles += 4;
                     break;
                 case 0x41:  // B <- C
-                    Processor.B = Processor.C;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.B, Processor.C);
                     break;
                 case 0x42:  // B <- D
-                    Processor.B = Processor.D;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.B, Processor.D);
                     break;
                 case 0x43:  // B <- E
-                    Processor.B = Processor.E;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.B, Processor.E);
                     break;
                 case 0x44:  // B <- H
-                    Processor.B = Processor.H;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.B, Processor.H);
                     break;
                 case 0x45:  // B <- L
-                    Processor.B = Processor.L;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.B, Processor.L);
                     break;
                 case 0x4F:  // C <- A
-                    Processor.C = Processor.A;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.C, Processor.A);
                     break;
                 case 0x48:  // C <- B
-                    Processor.C = Processor.B;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.C, Processor.B);
                     break;
                 case 0x49:  // C <- C
                     Processor.ClockCycles += 4;
                     break;
                 case 0x4A:  // C <- D
-                    Processor.C = Processor.D;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.C, Processor.D);
                     break;
                 case 0x4B:  // C <- E
-                    Processor.C = Processor.E;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.C, Processor.E);
                     break;
                 case 0x4C:  // C <- H
-                    Processor.C = Processor.H;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.C, Processor.H);
                     break;
                 case 0x4D:  // C <- L
-                    Processor.C = Processor.L;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.C, Processor.L);
                     break;
                 case 0x57:  // D <- A
-                    Processor.D = Processor.A;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.D, Processor.A);
                     break;
                 case 0x50:  // D <- B
-                    Processor.D = Processor.B;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.D, Processor.B);
                     break;
                 case 0x51:  // D <- C
-                    Processor.D = Processor.C;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.D, Processor.C);
                     break;
                 case 0x52:  // D <- D
                     Processor.ClockCycles += 4;
                     break;
                 case 0x53:  // D <- E
-                    Processor.D = Processor.E;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.D, Processor.E);
                     break;
                 case 0x54:  // D <- H
-                    Processor.D = Processor.H;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.D, Processor.H);
                     break;
                 case 0x55:  // D <- L
-                    Processor.D = Processor.L;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.D, Processor.L);
                     break;
                 case 0x5F:  // E <- A
-                    Processor.E = Processor.A;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.E, Processor.A);
                     break;
                 case 0x58:  // E <- B
-                    Processor.E = Processor.B;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.E, Processor.B);
                     break;
                 case 0x59:  // E <- C
-                    Processor.E = Processor.C;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.E, Processor.C);
                     break;
                 case 0x5A:  // E <- D
-                    Processor.E = Processor.D;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.E, Processor.D);
                     break;
                 case 0x5B:  // E <- E
                     Processor.ClockCycles += 4;
                     break;
                 case 0x5C:  // E <- H
-                    Processor.E = Processor.H;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.E, Processor.H);
                     break;
                 case 0x5D:  // E <- L
-                    Processor.E = Processor.L;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.E, Processor.L);
                     break;
                 case 0x67:  // H <- A
-                    Processor.H = Processor.A;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.H, Processor.A);
                     break;
                 case 0x60:  // H <- B
-                    Processor.H = Processor.B;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.H, Processor.B);
                     break;
                 case 0x61:  // H <- C
-                    Processor.H = Processor.C;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.H, Processor.C);
                     break;
                 case 0x62:  // H <- D
-                    Processor.H = Processor.D;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.H, Processor.D);
                     break;
                 case 0x63:  // H <- E
-                    Processor.H = Processor.E;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.H, Processor.E);
                     break;
                 case 0x64:  // H <- H
                     Processor.ClockCycles += 4;
                     break;
                 case 0x65:  // H <- L
-                    Processor.H = Processor.L;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.H, Processor.L);
                     break;
                 case 0x6F:  // L <- A
-                    Processor.L = Processor.A;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.L, Processor.A);
                     break;
                 case 0x68:  // L <- B
-                    Processor.L = Processor.B;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.L, Processor.B);
                     break;
                 case 0x69:  // L <- C
-                    Processor.L = Processor.C;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.L, Processor.C);
                     break;
                 case 0x6A:  // L <- D
-                    Processor.L = Processor.D;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.L, Processor.D);
                     break;
                 case 0x6B:  // L <- E
-                    Processor.L = Processor.E;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.L, Processor.E);
                     break;
                 case 0x6C:  // L <- H
-                    Processor.L = Processor.H;
-                    Processor.ClockCycles += 4;
+                    RegisterToRegisterOp(ref Processor.L, Processor.H);
                     break;
                 case 0x6D:  // L <- L
                     Processor.ClockCycles += 4;
                     break;
 
                 case 0xF9:  // SP <- HL
-                    Processor.SP = Processor.HL;
-                    Processor.ClockCycles += 8;
+                    RegisterToRegister16BitOp(ref Processor.SP, Processor.HL);
                     break;
 
                 case 0xF8: // HL <- SP + signed immediate
                     tempWord = Processor.HL;
-                    Processor.HL = (ushort)(Processor.SP + (sbyte)(Memory.Data[Processor.PC]));
-                    halfcarry = ((tempWord & 0xfff) + (Processor.HL & 0xfff) & 0x1000) == 0x1000 ? 1 : 0;
-                    carry = Processor.SP + (sbyte)(Memory.Data[Processor.PC]) > 0xFFFF ? 1 : 0;
-                    Processor.SetFlags(0, 0, halfcarry, carry);
-                    Processor.PC++;
-                    Processor.ClockCycles += 12;
+                    RegisterToRegister16BitOp(ref Processor.SP, (ushort)(Processor.SP + (sbyte)(Memory.Data[Processor.PC])));
+                    Processor.SetFlags(0, 0, ((tempWord & 0xfff) + (Processor.HL & 0xfff) & 0x1000) == 0x1000 ? 1 : 0, 
+                        Processor.SP + (sbyte)(Memory.Data[Processor.PC]) > 0xFFFF ? 1 : 0);
+                    Processor.PC++; //extra increment for the immediate
+                    Processor.ClockCycles += 4; //also more clock cycles
                     break;
 
+                #endregion
 
-                // STACK OPS
-                // PUSH
+                #region Stack Instructions
+
                 case 0xF5:  // PUSH AF
                     PushOp(Processor.F);
                     PushOp(Processor.A);
-                    Processor.ClockCycles += 16;
                     break;
                 case 0xC5:  // PUSH BC
                     PushOp(Processor.C);
                     PushOp(Processor.B);
-                    Processor.ClockCycles += 16;
                     break;
                 case 0xD5:  // PUSH DE
                     PushOp(Processor.E);
                     PushOp(Processor.D);
-                    Processor.ClockCycles += 16;
                     break;
                 case 0xE5:  // PUSH HL
                     PushOp(Processor.L);
                     PushOp(Processor.H);
-                    Processor.ClockCycles += 16;
                     break;
 
                 // POP
@@ -543,147 +440,144 @@ namespace PancakeEmulator
                 case 0xC1:  // POP BC
                     Processor.B = PopOp();
                     Processor.C = PopOp();
-                    Processor.ClockCycles += 12;
                     break;
                 case 0xD1:  // POP DE
                     Processor.D = PopOp();
                     Processor.E = PopOp();
-                    Processor.ClockCycles += 12;
                     break;
                 case 0xE1:  // POP HL
                     Processor.H = PopOp();
                     Processor.L = PopOp();
-                    Processor.ClockCycles += 12;
                     break;
-
-
                 #endregion
 
-                #region  Arithmetic instructions 
-
-                // 8-bit arithmetics
-
-                // ADD
+                #region Add Instructions
                 case 0x87: //A += A
                     AddOp(Processor.A);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x80: //A += B
                     AddOp(Processor.B);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x81: //A += C
                     AddOp(Processor.C);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x82: //A += D
                     AddOp(Processor.D);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x83: //A += E
                     AddOp(Processor.E);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x84: //A += H
                     AddOp(Processor.H);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x85: //A += L
                     AddOp(Processor.L);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x86: // A+= (HL)
                     AddOp(Memory.ReadByte(Processor.HL));
-                    Processor.ClockCycles += 8;
+                    Processor.ClockCycles += 4; //for the read op
                     break;
                 case 0xC6: // A += immediate
                     AddOp(Memory.Data[Processor.PC]);
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    Processor.PC++; //extra increment
+                    Processor.ClockCycles += 4; //read op
                     break;
 
                 // ADC
                 case 0x8F: //A += A+carry
                     AdcOp(Processor.A);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x88://A+=B+carry
                     AdcOp(Processor.B);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x89://A+=C+carry
                     AdcOp(Processor.C);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x8A://A+=D+carry
                     AdcOp(Processor.D);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x8B://A+=E+carry
                     AdcOp(Processor.E);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x8C://A+=H+carry
                     AdcOp(Processor.H);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x8D://A+=L+carry
                     AdcOp(Processor.L);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x8E://A+=(HL)+carry
                     AdcOp(Memory.ReadByte(Processor.HL));
-                    Processor.ClockCycles += 8;
+                    Processor.ClockCycles += 4; //for the read
                     break;
                 case 0xCE://A+=immediate+carry
                     AdcOp(Memory.Data[Processor.PC]);
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    Processor.PC++; //for the immediate
+                    Processor.ClockCycles += 4; //for the read
                     break;
 
+                // 16-bit arithmetics
+
+                // ADD
+                case 0x09: //HL += BC
+                    Add16BitOp((ushort)(Processor.B << 8 | Processor.C));
+                    break;
+                case 0x19: //HL += DE
+                    Add16BitOp((ushort)(Processor.D << 8 | Processor.E));
+                    Processor.ClockCycles += 8;
+                    break;
+                case 0x29: //HL += HL
+                    Add16BitOp(Processor.HL);
+                    break;
+                case 0x39: //HL += SP
+                    Add16BitOp(Processor.SP);
+                    break;
+                case 0xE8:  // SP += signed immediate byte                              
+                    tempWord = Processor.SP;
+                    Processor.SP = (ushort)(Processor.SP + ((sbyte)Memory.Data[Processor.PC]));
+                    Processor.SetFlags(0, 0, ((tempWord & 0xfff) + (Processor.HL & 0xfff) & 0x1000) == 0x1000 ? 1 : 0, 
+                        Processor.SP + (sbyte)(Memory.Data[Processor.PC]) > 0xFFFF ? 1 : 0);
+                    Processor.PC++; //for the immediate
+                    Processor.ClockCycles += 16;
+                    break;
+                #endregion
+
+                //todo here onwards
+                #region Sub Instructions
                 // SUB
                 case 0x97://A-=A
                     SubOp(Processor.A);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x90://A-=B
                     SubOp(Processor.B);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x91://A-=C
                     SubOp(Processor.C);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x92://A-=D
                     SubOp(Processor.D);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x93://A-=E
                     SubOp(Processor.E);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x94: //A -=H
                     SubOp(Processor.H);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x95: //A-=L
                     SubOp(Processor.L);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x96: //A-=(HL)
                     SubOp(Memory.ReadByte(Processor.HL));
-                    Processor.ClockCycles += 8;
+                    Processor.ClockCycles += 4; //extra cycles for the read
                     break;
                 case 0xD6://A-=(immediate)
                     SubOp(Memory.Data[Processor.PC]);
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    Processor.PC++; //extra for the read
+                    Processor.ClockCycles += 4; //extra for the read
                     break;
 
                 // SBC
                 case 0x9F: //A-=A+carry
                     SbcOp(Processor.A);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x98: //.etc
                     SbcOp(Processor.B);
@@ -714,7 +608,9 @@ namespace PancakeEmulator
                     Processor.ClockCycles += 8;
                     break;
                 // sbc + immediate non-existent?
+                #endregion
 
+                #region Inc/Dec Instructions
 
                 // INC
                 case 0x3C: //A++
@@ -786,7 +682,61 @@ namespace PancakeEmulator
                     Processor.ClockCycles += 12;
                     break;
 
-                // CMP
+                    // INC 16bit
+                case 0x03:  // BC++
+                    tempWord = (ushort)(Processor.B << 8 | Processor.C);
+                    tempWord++;
+                    Processor.B = (byte)(tempWord >> 8);
+                    Processor.C = (byte)tempWord;
+                    Processor.ClockCycles += 8;
+                    break;
+                case 0x13:  // DE++
+                    tempWord = (ushort)(Processor.D << 8 | Processor.E);
+                    tempWord++;
+                    Processor.D = (byte)(tempWord >> 8);
+                    Processor.E = (byte)tempWord;
+                    Processor.ClockCycles += 8;
+                    break;
+                case 0x23:  // HL++
+                    Processor.HL++;
+                    Processor.H = (byte)(Processor.HL >> 8);
+                    Processor.L = (byte)Processor.HL;
+                    Processor.ClockCycles += 8;
+                    break;
+                case 0x33:  // SP++
+                    Processor.SP++;
+                    Processor.ClockCycles += 8;
+                    break;
+
+                // DEC 16bit
+                case 0x0B:  // BC--
+                    tempWord = (ushort)(Processor.B << 8 | Processor.C);
+                    tempWord--;
+                    Processor.B = (byte)(tempWord >> 8);
+                    Processor.C = (byte)tempWord;
+                    Processor.ClockCycles += 8;
+                    break;
+                case 0x1B:  // DE--
+                    tempWord = (ushort)(Processor.D << 8 | Processor.E);
+                    tempWord--;
+                    Processor.D = (byte)(tempWord >> 8);
+                    Processor.E = (byte)tempWord;
+                    Processor.ClockCycles += 8;
+                    break;
+                case 0x2B:  // HL--
+                    Processor.HL--;
+                    Processor.H = (byte)(Processor.HL >> 8);
+                    Processor.L = (byte)Processor.HL;
+                    Processor.ClockCycles += 8;
+                    break;
+                case 0x3B:  // SP--
+                    Processor.SP--;
+                    Processor.ClockCycles += 8;
+                    break;
+#endregion
+
+                #region Compare Instructions
+
                 case 0xBF:
                     CompareOp(Processor.A);
                     Processor.ClockCycles += 4;
@@ -825,89 +775,8 @@ namespace PancakeEmulator
                     Processor.ClockCycles += 8;
                     break;
 
-                // 16-bit arithmetics
-
-                // ADD
-                case 0x09:
-                    Add16BitOp((ushort)(Processor.B << 8 | Processor.C));
-                    Processor.ClockCycles += 8;
-                    break;
-                case 0x19:
-                    Add16BitOp((ushort)(Processor.D << 8 | Processor.E));
-                    Processor.ClockCycles += 8;
-                    break;
-                case 0x29:
-                    Add16BitOp(Processor.HL);
-                    Processor.ClockCycles += 8;
-                    break;
-                case 0x39:
-                    Add16BitOp(Processor.SP);
-                    Processor.ClockCycles += 8;
-                    break;
-                case 0xE8:  // SP += signed immediate byte                              
-                    tempWord = Processor.SP;
-                    Processor.SP = (ushort)(Processor.SP + ((sbyte)Memory.Data[Processor.PC]));
-                    halfcarry = ((tempWord & 0xfff) + (Processor.HL & 0xfff) & 0x1000) == 0x1000 ? 1 : 0;
-                    carry = Processor.SP + (sbyte)(Memory.Data[Processor.PC]) > 0xFFFF ? 1 : 0;
-                    Processor.SetFlags(0, 0, halfcarry, carry);
-                    Processor.PC++; //set
-                    Processor.ClockCycles += 16;
-                    break;
-
-                // INC
-                case 0x03:  // BC++
-                    tempWord = (ushort)(Processor.B << 8 | Processor.C);
-                    tempWord++;
-                    Processor.B = (byte)(tempWord >> 8);
-                    Processor.C = (byte)tempWord;
-                    Processor.ClockCycles += 8;
-                    break;
-                case 0x13:  // DE++
-                    tempWord = (ushort)(Processor.D << 8 | Processor.E);
-                    tempWord++;
-                    Processor.D = (byte)(tempWord >> 8);
-                    Processor.E = (byte)tempWord;
-                    Processor.ClockCycles += 8;
-                    break;
-                case 0x23:  // HL++
-                    Processor.HL++;
-                    Processor.H = (byte)(Processor.HL >> 8);
-                    Processor.L = (byte)Processor.HL;
-                    Processor.ClockCycles += 8;
-                    break;
-                case 0x33:  // SP++
-                    Processor.SP++;
-                    Processor.ClockCycles += 8;
-                    break;
-
-                // DEC
-                case 0x0B:  // BC--
-                    tempWord = (ushort)(Processor.B << 8 | Processor.C);
-                    tempWord--;
-                    Processor.B = (byte)(tempWord >> 8);
-                    Processor.C = (byte)tempWord;
-                    Processor.ClockCycles += 8;
-                    break;
-                case 0x1B:  // DE--
-                    tempWord = (ushort)(Processor.D << 8 | Processor.E);
-                    tempWord--;
-                    Processor.D = (byte)(tempWord >> 8);
-                    Processor.E = (byte)tempWord;
-                    Processor.ClockCycles += 8;
-                    break;
-                case 0x2B:  // HL--
-                    Processor.HL--;
-                    Processor.H = (byte)(Processor.HL >> 8);
-                    Processor.L = (byte)Processor.HL;
-                    Processor.ClockCycles += 8;
-                    break;
-                case 0x3B:  // SP--
-                    Processor.SP--;
-                    Processor.ClockCycles += 8;
-                    break;
-
-                #endregion
-
+#endregion
+                
                 #region  Jump instructions 
                 // absolute jumps
                 case 0xC3:  // Unconditional + 2B immediate operands
@@ -1251,7 +1120,7 @@ namespace PancakeEmulator
                 #region CB
                 case 0xCB:  // Big Operation! includes rotations, shifts, swaps, set etc.
                     // check the operand to identify real operation
-                    switch (Memory.Data[Processor.PC + 1])
+                    switch (Memory.Data[Processor.PC])
                     {
                         // SWAPS
                         case 0x37:  // SWAP A
@@ -1595,16 +1464,12 @@ namespace PancakeEmulator
                             Processor.ClockCycles += 16;
                             break;
 
-
-
-                        // RESETS
-
-                        // BIT
+                        //TODO: Shifts
 
                         default:
                             err = true;
                             Processor.ClockCycles += 0;
-                            Processor.PC -= 2;
+                            Processor.PC --;
                             break;
                     }
                     Processor.PC += 2;
@@ -1681,6 +1546,212 @@ namespace PancakeEmulator
             LYReset += Processor.ClockCycles - oldClockCycle;
         }
 
+
+
+
+        #region Load Macro Operations
+
+        /// <summary>
+        /// Load an immediate value (PC) into a register. 8 clock cycles. Will increment PC.
+        /// </summary>
+        /// <param name="register">The register to load a value into.</param>
+        public void ImmediateLoadOp(ref byte register)
+        {
+            register = Memory.Data[Processor.PC];
+            Processor.PC++;
+            Processor.ClockCycles += 8;
+        }
+
+
+        /// <summary>
+        /// Load an immediate value (PC - PC+1) into 2 registers. 12 clock cycles. Will increment PC by 2.
+        /// i.e. to load a value into BC, call with (C, B) not (B, C)!
+        /// </summary>
+        /// <param name="register1">The register to load the first byte into.</param>
+        /// <param name="register2">The register to load the second byte into.</param>
+        public void Immediate16bitLoadOp(ref byte register1, ref byte register2)
+        {
+            register1 = Memory.Data[Processor.PC];
+            register2 = Memory.Data[Processor.PC + 1];
+            Processor.PC += 2;
+            Processor.ClockCycles += 12;
+        }
+
+        /// <summary>
+        /// Load an immediate value (PC - PC+1) into a (16 bit) register. 12 clock cycles. Will increment PC by 2.
+        /// </summary>
+        /// <param name="register">The register to load the word into.</param>
+        public void Immediate16bitLoadOp(ref ushort register)
+        {
+            register = Memory.ReadWord(Processor.PC);
+            Processor.PC += 2;
+            Processor.ClockCycles += 12;
+        }
+
+        /// <summary>
+        /// Load an immediate value (PC) into a memory location. 12 clock cycles. Will increment PC.
+        /// </summary>
+        /// <param name="address">The memory location to load the data into.</param>
+        public void ImmediateMemoryLocationLoadOp(ushort address)
+        {
+            Memory.WriteByte(address, Memory.Data[Processor.PC]);
+            Processor.PC++;
+            Processor.ClockCycles += 12;
+        }
+        #endregion
+
+        #region Transfer Macro Operations
+
+        /// <summary>
+        /// Load a value from memory into a register. 8 clock cycles. Will NOT increment PC.
+        /// </summary>
+        /// <param name="register">The register to load the data into.</param>
+        /// <param name="address">The memory location to read the data from.</param>
+        public void MemoryToRegisterOp(ref byte register, ushort address)
+        {
+            register = Memory.ReadByte(address);
+            Processor.ClockCycles += 8;
+        }
+
+        /// <summary>
+        /// Load a value from register into memory. 8 clock cycles. Will NOT increment PC.
+        /// </summary>
+        /// <param name="data">The register to load the data into.</param>
+        /// <param name="address">The memory location to read the data from.</param>
+        public void RegisterToMemoryOp(ushort address, byte data)
+        {
+            Memory.WriteByte(address, Processor.A);
+            Processor.ClockCycles += 8;
+        }
+
+        /// <summary>
+        /// Copy a value from (16 bit) register2 to register1. 8 clock cycles. Will NOT increment PC.
+        /// </summary>
+        /// <param name="register1">The register to copy the data INTO.</param>
+        /// <param name="register2">The register to copy the data FROM.</param>
+        public void RegisterToRegister16BitOp(ref ushort register1, ushort register2)
+        {
+            register1 = register2;
+            Processor.ClockCycles += 8;
+        }
+
+        /// <summary>
+        /// Copy a value from register2 to register1. 4 clock cycles. Will NOT increment PC.
+        /// </summary>
+        /// <param name="register1">The register to copy the data INTO.</param>
+        /// <param name="register2">The register to copy the data FROM.</param>
+        private void RegisterToRegisterOp(ref byte register1, byte register2)
+        {
+            register1 = register2;
+            Processor.ClockCycles += 4;
+        }
+
+#endregion
+
+        #region Stack Macro Operations
+
+        /// <summary>
+        /// Pushes a value onto the stack. 8 clock cycles. Will NOT increment PC.
+        /// </summary>
+        /// <param name="value">The value to be pushed onto the stack.</param>
+        public void PushOp(byte value)
+        {
+            //decrement the stack pointer then add in the value. The SP points to the top, not the free spot!
+            Processor.SP--;
+            Memory.Data[Processor.SP] = value;
+        }
+
+        /// <summary>
+        /// Pushes a 16bit value onto the stack. 16 clock cycles. Will NOT increment PC.
+        /// </summary>
+        /// <param name="value">The value to be pushed onto the stack.</param>
+        public void Push16BitOp(ushort value)
+        {
+            PushOp((byte)value); //push the low end
+            PushOp((byte)(value >> 8)); //push the high end
+        }
+
+        /// <summary>
+        /// Pops a value from the stack. 6 clock cycles. Will NOT increment PC.
+        /// </summary>
+        public byte PopOp()
+        {
+            byte ret = Memory.Data[Processor.SP];
+            Processor.SP++;
+            Processor.ClockCycles += 6;
+            return ret;
+        }
+        #endregion
+
+        #region Arithmetic Macro Operations
+
+        /// <summary>
+        /// Add a value to register A. 4 clock cycles. Will NOT increment PC. Sets flags.
+        /// </summary>
+        /// <param name="value">The byte to add to A.</param>
+        public void AddOp(byte value)
+        {
+            byte a = Processor.A;
+            Processor.A += value;
+            //first two flags are obvious. halfcarry is set if bit 3 carries. carry set if the addition is smaller than the input
+            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (((a & 0xf) + (Processor.A & 0xf)) & 0x10) == 0x10 ? 1 : 0,
+                Processor.A < value ? 1 : 0);
+            Processor.ClockCycles += 4;
+        }
+
+        /// <summary>
+        /// Add a value to register A, including the carry flag. 4 clock cycles. Will NOT increment PC. Sets flags.
+        /// </summary>
+        /// <param name="value">The byte to add to A.</param>
+        public void AdcOp(byte value)
+        {
+            byte a = Processor.A;
+            Processor.A += (byte)(value + Processor.CarryFlag);
+            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (((a & 0xf) + (Processor.A & 0xf)) & 0x10) == 0x10 ? 1 : 0,
+                Processor.A < a + Processor.CarryFlag ? 1 : 0);
+            Processor.ClockCycles += 4;
+        }
+
+        /// <summary>
+        /// Add a 16 bit value to register HL. 8 clock cycles. Will NOT increment PC. Sets flags.
+        /// </summary>
+        /// <param name="value">The byte to add to HL.</param>
+        public void Add16BitOp(ushort value) //adds to HL
+        {
+            ushort a = Processor.HL;
+            Processor.HL += value;
+            Processor.SetFlags((Processor.HL == 0) ? 1 : 0, 0, (((a & 0xfff) + (value & 0xfff)) & 0x10) == 0x10 ? 1 : 0, (Processor.HL < a ? 1 : 0));
+            Processor.ClockCycles += 8;
+        }
+
+        /// <summary>
+        /// Subtracts a value from register A including carry. 8 clock cycles. Will NOT increment PC. Sets flags.
+        /// </summary>
+        /// <param name="value">The value to subtract from A.</param>
+        public void SbcOp(byte value)
+        {
+            byte a = Processor.A;
+            Processor.A -= (byte)(value+Processor.CarryFlag);
+            //first two flags are obvious. halfcarry is set if bit 3 carries. carry set if the addition is smaller than the input
+            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (((a & 0x10) - (Processor.A & 0x10)) & 0xf) == 0xf ? 1 : 0,
+                Processor.A > a ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Subtracts a value from register A. 4 clock cycles. Will NOT increment PC. Sets flags.
+        /// </summary>
+        /// <param name="value">The value to subtract from A.</param>
+        public void SubOp(byte value)
+        {
+            byte a = Processor.A;
+            Processor.A -= value;
+            //first two flags are obvious. halfcarry is set if bit 3 carries. carry set if the addition is smaller than the input
+            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (((a & 0x10) - (Processor.A & 0x10)) & 0xf) == 0xf ? 1 : 0,
+                Processor.A > a ? 1 : 0);
+        }
+
+        #endregion
+
         private byte SetBitOp(int position, byte val) 
         {
             return (byte)(val | (0x01 << position));
@@ -1733,14 +1804,7 @@ namespace PancakeEmulator
             //Processor.PC++;
         }
 
-        private void Add16BitOp(ushort p) //adds to HL
-        {
-            ushort a = Processor.HL;
-            Processor.HL += p;
-            Processor.H = (byte)(Processor.HL >> 8); //top byte
-            Processor.L = (byte)(Processor.HL); //bottom byte
-            Processor.SetFlags((Processor.HL == 0) ? 1 : 0, 0, (((a & 0xfff) + (p & 0xfff)) & 0x10) == 0x10 ? 1 : 0, (Processor.HL < a ? 1: 0)); 
-        }
+       
 
         private void CompareOp(byte p)
         {
@@ -1763,24 +1827,9 @@ namespace PancakeEmulator
             return a;
         }
 
-        private void SbcOp(byte p)
-        {
-            throw new NotImplementedException();
-        }
 
-        private void SubOp(byte p)
-        {
-            throw new NotImplementedException();
-        }
 
-        //Add p to A with carry bit
-        public void AdcOp(byte p)
-        {
-            byte a = Processor.A;
-            Processor.A += (byte)(a + Processor.CarryFlag);
-            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (((a & 0xf) + (Processor.A & 0xf)) & 0x10) == 0x10 ? 1 : 0,
-                Processor.A < a+Processor.CarryFlag ? 1 : 0);
-        }
+        
 
         //return from a subroutine
         public void ReturnOp()
@@ -1801,34 +1850,9 @@ namespace PancakeEmulator
             Processor.PC = to;
         }
 
-        //so push this value to the current stack addr, then drop the stack pointer
-        public void PushOp(byte val)
-        {
-            Processor.SP--;
-            Memory.Data[Processor.SP] = val;
-        }
-
-        public void Push16BitOp(ushort val)
-        {
-            PushOp((byte)val); //push the low end
-            PushOp((byte)(val >> 8)); //push the high end
-        }
-
-        public byte PopOp()
-        {
-            byte ret = Memory.Data[Processor.SP];
-            Processor.SP++;
-            return ret;
-        }
+ 
 
         //add something to A
-        public void AddOp(byte val)
-        {
-            byte a = Processor.A;
-            Processor.A += a;
-            //first two flags are obvious. halfcarry is set if bit 3 carries. carry set if the addition is smaller than the input
-            Processor.SetFlags((Processor.A == 0) ? 1 : 0, 0, (((a & 0xf) + (Processor.A & 0xf)) & 0x10) == 0x10 ? 1 : 0, 
-                Processor.A < val ? 1 : 0);
-        }
+
     }
 }
