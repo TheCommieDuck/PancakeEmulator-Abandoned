@@ -1772,11 +1772,12 @@ namespace PancakeEmulator
         }
 
         /// <summary>
-        /// Jump to an relative, 8 bit (immediate signed) address + the current PC. Changes PC but will NOT increment. 8 clock cycles.
+        /// Jump to an relative, 8 bit (immediate signed) address + the current PC. Changes PC but will increment (fixed bug). 8 clock cycles.
         /// </summary>
         public void JumpNearOp()
         {
             Processor.PC = (ushort)(Processor.PC + (sbyte)Memory.ReadByte(Processor.PC));
+            Processor.PC++;
             Processor.ClockCycles += 8;
         }
 
