@@ -541,7 +541,6 @@ namespace PancakeEmulator
                     break;
                 #endregion
 
-                //todo here onwards
                 #region Sub Instructions
                 // SUB
                 case 0x97://A-=A
@@ -581,31 +580,25 @@ namespace PancakeEmulator
                     break;
                 case 0x98: //.etc
                     SbcOp(Processor.B);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x99:
                     SbcOp(Processor.C);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x9A:
                     SbcOp(Processor.D);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x9B:
                     SbcOp(Processor.E);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x9C:
                     SbcOp(Processor.H);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x9D:
                     SbcOp(Processor.L);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x9E:
                     SbcOp(Memory.ReadByte(Processor.HL));
-                    Processor.ClockCycles += 8;
+                    Processor.ClockCycles += 4; //extra cycles
                     break;
                 // sbc + immediate non-existent?
                 #endregion
@@ -615,123 +608,91 @@ namespace PancakeEmulator
                 // INC
                 case 0x3C: //A++
                     Processor.A = IncOp(Processor.A);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x04: //B++
                     Processor.B = IncOp(Processor.B);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x0C: //C++
                     Processor.C = IncOp(Processor.C);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x14: //D++
                     Processor.D = IncOp(Processor.D);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x1C: //E++
                     Processor.E = IncOp(Processor.E);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x24: //H++
                     Processor.H = IncOp(Processor.H);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x2C: //L++
                     Processor.L = IncOp(Processor.L);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x34: //(HL)++
-                    tempByte = Memory.ReadByte(Processor.HL);
-                    Memory.WriteByte(Processor.HL, IncOp(tempByte));
-                    Processor.ClockCycles += 12;
+                    Memory.WriteByte(Processor.HL, IncOp(Memory.ReadByte(Processor.HL)));
+                    Processor.ClockCycles += 8; //extra cycles
                     break;
 
                 // DEC
                 case 0x3D: //A--
                     Processor.A = DecOp(Processor.A);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x05: //B--
                     Processor.B = DecOp(Processor.B);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x0D: //C--
                     Processor.C = DecOp(Processor.C);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x15: //D--
                     Processor.D = DecOp(Processor.D);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x1D: //E--
                     Processor.E = DecOp(Processor.E);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x25: //H--
                     Processor.H = DecOp(Processor.H);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x2D: //L--
                     Processor.L = DecOp(Processor.L);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0x35: //(HL)--
-                    tempByte = Memory.ReadByte(Processor.HL);
-                    Memory.WriteByte(Processor.HL, DecOp(tempByte));
-                    Processor.ClockCycles += 12;
+                    Memory.WriteByte(Processor.HL, DecOp(Memory.ReadByte(Processor.HL)));
+                    Processor.ClockCycles += 8; //extra cycles
                     break;
 
                     // INC 16bit
                 case 0x03:  // BC++
-                    tempWord = (ushort)(Processor.B << 8 | Processor.C);
-                    tempWord++;
+                    tempWord = Inc16BitOp((ushort)(Processor.B << 8 | Processor.C));
                     Processor.B = (byte)(tempWord >> 8);
                     Processor.C = (byte)tempWord;
-                    Processor.ClockCycles += 8;
                     break;
                 case 0x13:  // DE++
-                    tempWord = (ushort)(Processor.D << 8 | Processor.E);
-                    tempWord++;
+                    tempWord = Inc16BitOp((ushort)(Processor.D << 8 | Processor.E));
                     Processor.D = (byte)(tempWord >> 8);
                     Processor.E = (byte)tempWord;
-                    Processor.ClockCycles += 8;
                     break;
                 case 0x23:  // HL++
-                    Processor.HL++;
-                    Processor.H = (byte)(Processor.HL >> 8);
-                    Processor.L = (byte)Processor.HL;
-                    Processor.ClockCycles += 8;
+                    Processor.HL = Inc16BitOp(Processor.HL);
                     break;
                 case 0x33:  // SP++
-                    Processor.SP++;
-                    Processor.ClockCycles += 8;
+                    Processor.SP = Inc16BitOp(Processor.SP);
                     break;
 
                 // DEC 16bit
                 case 0x0B:  // BC--
-                    tempWord = (ushort)(Processor.B << 8 | Processor.C);
-                    tempWord--;
+                    tempWord = Dec16BitOp((ushort)(Processor.B << 8 | Processor.C));
                     Processor.B = (byte)(tempWord >> 8);
                     Processor.C = (byte)tempWord;
-                    Processor.ClockCycles += 8;
                     break;
                 case 0x1B:  // DE--
-                    tempWord = (ushort)(Processor.D << 8 | Processor.E);
-                    tempWord--;
+                    tempWord = Dec16BitOp((ushort)(Processor.D << 8 | Processor.E));
                     Processor.D = (byte)(tempWord >> 8);
                     Processor.E = (byte)tempWord;
-                    Processor.ClockCycles += 8;
                     break;
                 case 0x2B:  // HL--
-                    Processor.HL--;
-                    Processor.H = (byte)(Processor.HL >> 8);
-                    Processor.L = (byte)Processor.HL;
-                    Processor.ClockCycles += 8;
+                    Processor.HL = Dec16BitOp(Processor.HL);
                     break;
                 case 0x3B:  // SP--
-                    Processor.SP--;
-                    Processor.ClockCycles += 8;
+                    Processor.SP = Dec16BitOp(Processor.SP);
                     break;
 #endregion
 
@@ -739,40 +700,33 @@ namespace PancakeEmulator
 
                 case 0xBF:
                     CompareOp(Processor.A);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0xB8:
                     CompareOp(Processor.B);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0xB9:
                     CompareOp(Processor.C);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0xBA:
                     CompareOp(Processor.D);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0xBB:
                     CompareOp(Processor.E);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0xBC:
                     CompareOp(Processor.H);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0xBD:
                     CompareOp(Processor.L);
-                    Processor.ClockCycles += 4;
                     break;
                 case 0xBE:
                     CompareOp(Memory.ReadByte(Processor.HL));
-                    Processor.ClockCycles += 8;
+                    Processor.ClockCycles += 4; //extra for the read
                     break;
                 case 0xFE:
                     CompareOp(Memory.Data[Processor.PC]);
-                    Processor.PC++;//set
-                    Processor.ClockCycles += 8;
+                    Processor.PC++;//extra for the read
+                    Processor.ClockCycles += 4;
                     break;
 
 #endregion
@@ -781,35 +735,18 @@ namespace PancakeEmulator
                 // absolute jumps
                 case 0xC3:  // Unconditional + 2B immediate operands
                     JumpFarOp();
-                    Processor.ClockCycles += 12;
                     break;
-
                 case 0xC2:  // Conditional NZ + 2B immediate operands
-                    if (Processor.ZeroFlag == 0) 
-                        JumpFarOp();
-                    else 
-                        Processor.PC += 2;
-                    Processor.ClockCycles += 12;
+                    ConditionalJumpFarOp(() => Processor.ZeroFlag == 0);
                     break;
                 case 0xCA:  // Conditional Z + 2B immediate operands
-                    if (Processor.ZeroFlag != 0) 
-                        JumpFarOp();
-                    else Processor.PC += 2;
-                    Processor.ClockCycles += 12;
+                    ConditionalJumpFarOp(() => Processor.ZeroFlag != 0);
                     break;
                 case 0xD2:  // Conditional NC + 2B immediate operands
-                    if (Processor.CarryFlag == 0) 
-                        JumpFarOp();
-                    else 
-                        Processor.PC += 2;
-                    Processor.ClockCycles += 12;
+                    ConditionalJumpFarOp(() => Processor.CarryFlag == 0);
                     break;
                 case 0xDA:  // Conditional C + 2B immediate operands
-                    if (Processor.CarryFlag != 0)
-                        JumpFarOp();
-                    else 
-                        Processor.PC += 2;
-                    Processor.ClockCycles += 12;
+                    ConditionalJumpFarOp(() => Processor.CarryFlag != 0);
                     break;
                 case 0xE9:  // Unconditional jump to HL
                     Processor.PC = Processor.HL;
@@ -819,136 +756,95 @@ namespace PancakeEmulator
                 // relative jumps
                 case 0x18:  // Unconditional + relative byte
                     JumpNearOp();
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
                     break;
                 case 0x20:  // Conditional NZ + relative byte
-                    if (Processor.ZeroFlag == 0)
-                        JumpNearOp();
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    ConditionalJumpNearOp(() => Processor.ZeroFlag == 0);
                     break;
                 case 0x28:  // Conditional Z + relative byte
-                    if (Processor.ZeroFlag != 0)
-                        JumpNearOp();
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    ConditionalJumpNearOp(() => Processor.ZeroFlag != 0);
                     break;
                 case 0x30:  // Conditional NC + relative byte
-                    if (Processor.CarryFlag == 0)
-                        JumpNearOp();
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    ConditionalJumpNearOp(() => Processor.CarryFlag == 0);
                     break;
                 case 0x38:  // Conditional C + relative byte
-                    if (Processor.CarryFlag != 0)
-                        JumpNearOp();
-                    Processor.PC++;
-                    Processor.ClockCycles += 8;
+                    ConditionalJumpNearOp(() => Processor.ZeroFlag != 0);
                     break;
+#endregion
+
+                #region Call Instructions
 
                 // calls
                 case 0xCD:  // unconditional
                     CallOp();
-                    Processor.ClockCycles += 12;
                     break;
                 case 0xC4:  // Conditional NZ
-                    if (Processor.ZeroFlag == 0)
-                        CallOp();
-                    else 
-                        Processor.PC += 2;
-                    Processor.ClockCycles += 12;
+                    ConditionalCallOp(() => Processor.ZeroFlag == 0);
                     break;
                 case 0xCC:  // Conditional Z
-                    if (Processor.ZeroFlag != 0)
-                        CallOp();
-                    else 
-                        Processor.PC += 2;
-                    Processor.ClockCycles += 12;
+                    ConditionalCallOp(() => Processor.ZeroFlag != 0);
                     break;
                 case 0xD4:  // Conditional NC
-                    if (Processor.CarryFlag == 0)
-                        CallOp();
-                    else 
-                        Processor.PC += 2;
-                    Processor.ClockCycles += 12;
+                    ConditionalCallOp(() => Processor.CarryFlag == 0);
                     break;
                 case 0xDC:  // Conditional C
-                    if (Processor.CarryFlag != 0)
-                        CallOp();
-                    else 
-                        Processor.PC += 2;
-                    Processor.ClockCycles += 12;
+                    ConditionalCallOp(() => Processor.CarryFlag != 0);
                     break;
+#endregion
 
-                // resets
+                #region Reset Instructions
                 case 0xC7:
                     ResetOp(0x00);
-                    Processor.ClockCycles += 32;
                     break;
                 case 0xCF:
                     ResetOp(0x08);
-                    Processor.ClockCycles += 32;
                     break;
                 case 0xD7:
                     ResetOp(0x10);
-                    Processor.ClockCycles += 32;
                     break;
                 case 0xDF:
                     ResetOp(0x18);
-                    Processor.ClockCycles += 32;
                     break;
                 case 0xE7:
                     ResetOp(0x20);
-                    Processor.ClockCycles += 32;
                     break;
                 case 0xEF:
                     ResetOp(0x28);
-                    Processor.ClockCycles += 32;
                     break;
                 case 0xF7:
                     ResetOp(0x30);
-                    Processor.ClockCycles += 32;
                     break;
                 case 0xFF:
                     ResetOp(0x38);
-                    Processor.ClockCycles += 32;
                     break;
+#endregion
+
+                #region Return Instructions
 
                 // returns
                 case 0xC9:  // unconditional
                     ReturnOp();
-                    Processor.ClockCycles += 8;
                     break;
                 case 0xD9:  // unconditional plus enable interrupts (RETI)
                     ReturnOp();
-                    Processor.EnableSignal = 1;
-                    Processor.ClockCycles += 8;
+                    Processor.EnableInterruptSignal = 1;
                     break;
                 case 0xC0:  // Conditional NZ
-                    if (Processor.ZeroFlag == 0)
-                        ReturnOp();
-                    Processor.ClockCycles += 8;
+                    ConditionalReturnOp(() => Processor.ZeroFlag == 0);
                     break;
                 case 0xC8:  // Conditional Z
-                    if (Processor.ZeroFlag != 0)
-                        ReturnOp();
+                    ConditionalReturnOp(() => Processor.ZeroFlag != 0);
                     Processor.ClockCycles += 8;
                     break;
                 case 0xD0:  // Conditional NC
-                    if (Processor.CarryFlag == 0)
-                        ReturnOp();
-                    Processor.ClockCycles += 8;
+                    ConditionalReturnOp(() => Processor.CarryFlag == 0);
                     break;
                 case 0xD8:  // Conditional C
-                    if (Processor.CarryFlag != 0)
-                        ReturnOp();
-                    Processor.ClockCycles += 8;
+                    ConditionalReturnOp(() => Processor.CarryFlag != 0);
                     break;
-
 
                 #endregion
 
+                    //todo: here on
                 #region  Logical instructions 
 
                 // OR
@@ -1506,22 +1402,21 @@ namespace PancakeEmulator
                     else Processor.SkipPCCounting = true;
                     Processor.PC++;
                     Processor.ClockCycles += 4;
-                    break;
+                    break;*/
 
                 case 0x10:  // STOP
                     if (Memory.Data[Processor.PC] != 0)   // check if next operand is 0 (has to be!)
                     {
-                        UnknownOperand = true;
+                        err = true;
                         Processor.ClockCycles += 0;
                         break;
                     }
                     else
                     {
-                        Processor.CPUStop = true;
+                        //Processor.CPUStop = true;
                         Processor.ClockCycles += 4;
                     }
                     break;
-                    */
                 case 0xF3:  // Disable Interrupts (DI)
                     Processor.DisableSignal = 1;  // Interrupts Mode will change after next opcode, so signal it
                     Processor.ClockCycles += 4;
@@ -1752,6 +1647,74 @@ namespace PancakeEmulator
 
         #endregion
 
+        #region Inc/Dec Macro Operations
+
+        /// <summary>
+        /// Decrements a value and returns it. 4 clock cycles. Sets flags. Will not increment PC.
+        /// </summary>
+        /// <param name="value">The value to decrement.</param>
+        /// <returns>Decremented value.</returns>
+        public byte DecOp(byte value)
+        {
+            byte a = value;
+            a--;
+            Processor.SetFlags((a == 0) ? 1 : 0, 0, (((value & 0x10) - (a & 0x10)) & 0xf) == 0xf ? 1 : 0, Processor.CarryFlag);
+            Processor.ClockCycles += 4;
+            return a;
+        }
+
+        /// <summary>
+        /// Increments a value and returns it. 8 clock cycles. Will not increment PC.
+        /// </summary>
+        /// <param name="value">The value to increment.</param>
+        /// <returns>incremented value.</returns>
+        public ushort Inc16BitOp(ushort value)
+        {
+            ushort a = value;
+            a++;
+            Processor.ClockCycles += 8;
+            return a;
+        }
+
+        /// <summary>
+        /// Decrements a value and returns it. 8 clock cycles. Will not increment PC.
+        /// </summary>
+        /// <param name="value">The value to decrement.</param>
+        /// <returns>Decremented value.</returns>
+        public ushort Dec16BitOp(ushort value)
+        {
+            ushort a = value;
+            a--;
+            Processor.ClockCycles += 8;
+            return a;
+        }
+
+        /// <summary>
+        /// Increments a value and returns it. 4 clock cycles. Sets flags. Will not increment PC.
+        /// </summary>
+        /// <param name="value">The value to increment.</param>
+        /// <returns>incremented value.</returns>
+        public byte IncOp(byte value)
+        {
+            byte a = value;
+            a++;
+            Processor.SetFlags((a == 0) ? 1 : 0, 0, (((a & 0xf) + (value & 0xf)) & 0x10) == 0x10 ? 1 : 0, Processor.CarryFlag);
+            Processor.ClockCycles += 4;
+            return a;
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Compares register A and sets flags. 4 clock cycles. Will not increment PC. Sets flags.
+        /// </summary>
+        /// <param name="value">the value to compare to.</param>
+        public void CompareOp(byte value)
+        {
+            Processor.SetFlags((Processor.A == value ? 1 : 0), 1, (((Processor.A - value) & 0x10) == 0) ? 1 : 0, Processor.A < value ? 1 : 0);
+            Processor.ClockCycles += 4;
+        }
+
         private byte SetBitOp(int position, byte val) 
         {
             return (byte)(val | (0x01 << position));
@@ -1786,68 +1749,118 @@ namespace PancakeEmulator
             throw new NotImplementedException();
         }
 
-        private void JumpFarOp() //jump to a 16bit address
+        #region Jump Macro Operations
+        /// <summary>
+        /// Jump to an absolute, 16 bit (immediate) address. Changes PC. 12 clock cycles.
+        /// </summary>
+        public void JumpFarOp() //jump to a 16bit address
         {
             Processor.PC = Memory.ReadWord(Processor.PC);
+            Processor.ClockCycles += 12;
         }
 
-        private void CallOp() //call 
+        /// <summary>
+        /// Jump to an absolute, 16 bit (immediate) address if a condition is met. Changes PC. 12 clock cycles.
+        /// </summary>
+        public void ConditionalJumpFarOp(Func<bool> condition)
+        {
+            if (condition())
+                JumpFarOp();
+            else
+                Processor.PC += 2; //they'll always have a 16bit operand
+            Processor.ClockCycles += 12;
+        }
+
+        /// <summary>
+        /// Jump to an relative, 8 bit (immediate signed) address + the current PC. Changes PC but will NOT increment. 8 clock cycles.
+        /// </summary>
+        public void JumpNearOp()
+        {
+            Processor.PC = (ushort)(Processor.PC + (sbyte)Memory.ReadByte(Processor.PC));
+            Processor.ClockCycles += 8;
+        }
+
+        /// <summary>
+        /// Jump to an relative, 8 bit (immediate signed) address + the current PC if condition is met. Changes PC and increments if nojump. 8 clock cycles.
+        /// </summary>
+        public void ConditionalJumpNearOp(Func<bool> condition)
+        {
+            if (condition())
+                JumpNearOp();
+            else
+                Processor.PC++; //only a single increment since it's an 8bit operand
+            Processor.ClockCycles += 8;
+        }
+        #endregion
+
+        #region Call Macro Operations
+
+        /// <summary>
+        /// Stores the current PC to the stack and moves to the immediate value. Will move PC. 12 clock cycles.
+        /// </summary>
+        public void CallOp() //call 
         {
             ushort nextInstr = (ushort)(Processor.PC + 2); //PC-1 is the current instruction (i.e. what called call), then PC and PC+1 are the memory address of the call
             Push16BitOp(nextInstr);
             Processor.PC = Memory.ReadWord(Processor.PC);
+            Processor.ClockCycles += 12;
         }
 
-        private void JumpNearOp()
+        /// <summary>
+        /// Stores the current PC to the stack and moves to the immediate value if condition. Will move PC. 12 clock cycles.
+        /// </summary>
+        public void ConditionalCallOp(Func<bool> condition) //call 
         {
-            Processor.PC = (ushort)(Processor.PC + (sbyte)Memory.ReadByte(Processor.PC));
-            //Processor.PC++;
+            if(condition())
+            {
+                ushort nextInstr = (ushort)(Processor.PC + 2); //PC-1 is the current instruction (i.e. what called call), then PC and PC+1 are the memory address of the call
+                Push16BitOp(nextInstr);
+                Processor.PC = Memory.ReadWord(Processor.PC);
+            }
+            else
+                Processor.PC += 2;
+            Processor.ClockCycles += 12;
         }
+        #endregion
 
-       
-
-        private void CompareOp(byte p)
-        {
-            Processor.SetFlags((Processor.A == p ? 1 : 0), 1, (((Processor.A - p) & 0x10) == 0) ? 1 : 0, Processor.A < p ? 1 : 0);
-        }
-
-        private byte DecOp(byte p)
-        {
-            byte a = p;
-            a--;
-            Processor.SetFlags((a == 0) ? 1 : 0, 0, (((p & 0x10) - (a & 0x10)) & 0xf) == 0xf ? 1 : 0, Processor.CarryFlag);
-            return a;
-        }
-
-        private byte IncOp(byte p)
-        {
-            byte a = p;
-            a++;
-            Processor.SetFlags((a == 0) ? 1 : 0, 0, (((a & 0xf) + (p & 0xf)) & 0x10) == 0x10 ? 1 : 0, Processor.CarryFlag);
-            return a;
-        }
-
-
-
-        
-
-        //return from a subroutine
+        /// <summary>
+        /// Returns from a subroutine. Will change PC. 8 clock cycles.
+        /// </summary>
         public void ReturnOp()
         {
             Processor.PC = Pop16BitOp();
+            Processor.ClockCycles += 8;
         }
 
+        /// <summary>
+        /// Returns from a subroutine if condition. Will change PC. 8 clock cycles.
+        /// </summary>
+        public void ConditionalReturnOp(Func<bool> condition)
+        {
+            if(condition())
+                Processor.PC = Pop16BitOp();
+            Processor.ClockCycles += 8;
+        }
+
+        /// <summary>
+        /// Pops a 16 bit value from the stack (i.e. pops 2 8-bit ops off the stack and merges)
+        /// </summary>
+        /// <returns>the 16-bit value.</returns>
         private ushort Pop16BitOp()
         {
             return (ushort)((PopOp() << 8) + PopOp());
         }
 
-        //reset the PC to some address
+        /// <summary>
+        /// Reset the PC to some address. 32 clock cycles. Will move PC.
+        /// </summary>
+        /// <param name="to">The address to reset to.</param>
         public void ResetOp(ushort to)
         {
-            ushort oldPC = (ushort)(Processor.PC - 1); //we want to store the old PC, not the current one
+            ushort oldPC = (ushort)(Processor.PC - 1); //we want to store the old PC, not the current one - i.e. the executing opcode location
             Push16BitOp(oldPC);
             Processor.PC = to;
+            Processor.ClockCycles += 32;
         }
 
  

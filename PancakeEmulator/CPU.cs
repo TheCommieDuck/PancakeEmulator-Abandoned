@@ -56,5 +56,7 @@ namespace PancakeEmulator
             SP = 0xFFFE;
             SetFlags(1, 0, 1, 1);
         }
+
+        public static int EnableInterruptSignal { get; set; }
     }
 }
