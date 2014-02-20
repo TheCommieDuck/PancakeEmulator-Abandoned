@@ -74,8 +74,11 @@ namespace PancakeEmulator
                 if (currentPC == 0xC470/*D*/) //at c470 we are at 857e instructions
                     System.Diagnostics.Debugger.Break();
                 Processor.PC++;
-                //if (instr == 0xE0)
-                    //System.Diagnostics.Debugger.Break();
+                //0x0210 is successful
+                /*0xC182:
+                 * A - C3 B 01 C 00 D D0 E 00 H c1 L 85 Flags 1101
+                 * SP DFFB PC C182
+                 */
                 Decode(instr);
 
                 NumberInstructions++;
@@ -1658,7 +1661,7 @@ namespace PancakeEmulator
         {
             byte a = value;
             a--;
-            Processor.SetFlags((a == 0) ? 1 : 0, 0, (((value & 0x10) - (a & 0x10)) & 0xf) == 0xf ? 1 : 0, Processor.CarryFlag);
+            Processor.SetFlags((a == 0) ? 1 : 0, 1, (((value & 0x10) - (a & 0x10)) & 0x10) == 0x10 ? 1 : 0, Processor.CarryFlag);
             Processor.ClockCycles += 4;
             return a;
         }
