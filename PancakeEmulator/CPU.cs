@@ -31,6 +31,7 @@ namespace PancakeEmulator
         public uint ClockCycles;
         public int EnableSignal;
         public static int DisableSignal;
+        public static bool Stop;
 
         //if A = 0, if a subtraction was performed, if the bottom nibble carried, if the whole thing carried
         public void SetFlags(int zeroFlag, int subtractFlag, int halfCarryFlag, int carryFlag)
