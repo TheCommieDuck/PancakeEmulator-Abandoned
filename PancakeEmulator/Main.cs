@@ -10,12 +10,7 @@ namespace PancakeEmulator
      * -Interrupts, halts, stops, all that jazz. Priority: bottom, fix the bugs first
      * Consider setting up semi-unit-testing. At least some kind of 'testbed' with the test roms. //Priority: lower than interrupts, really
      * Graphics - I think this is the lowest one..
-     * Need to check flags on complement/set carry. Priority: when I have internet
-     * Add in the missing CB opcodes (I think it's mostly shifts and resetting bits) Priority: when I have internet
-     * 
-     * Check out whether I need a PC++ in the CB switch. Sorted.
-     * Have a go at cleaning up that big CB operation. SORTED
-     * Sort out the bottom macro opcodes - SORTED
+     * Add in the missing CB opcodes (I think it's mostly shifts and resetting bits) In progress!
      */
 
     class Emulator
@@ -76,6 +71,7 @@ namespace PancakeEmulator
                         Memory.Data[0xFF41] &= 0xFB;  // bit off
 
                 }
+
                 byte instr = Memory.Data[Processor.PC];
                 ushort currentPC = Processor.PC; //then we move the program counter forward for data reading
                 //Console.WriteLine("Performing operation {0:X2} at {1:X2}", instr, Processor.PC);
@@ -86,6 +82,8 @@ namespace PancakeEmulator
                  * SP DFFB PC C182
                  * C06a - srl b - goes from 0000 FF to 7F 0001
                  */
+                if (currentPC == 0x0207)
+                    System.Diagnostics.Debugger.Break();
                 Decode(instr);
 
                 NumberInstructions++;
@@ -99,9 +97,9 @@ namespace PancakeEmulator
             //https://code.google.com/p/sharpgb/
             //temp variables
             ushort tempWord;
-            byte tempByte;
-            int halfcarry, carry;
-            ushort address; //a temporary address
+            //byte tempByte;
+            //int halfcarry, carry;
+            //ushort address; //a temporary address
             bool err = false;
             uint oldClockCycle = Processor.ClockCycles;
             switch (opcode)
@@ -1052,6 +1050,56 @@ namespace PancakeEmulator
                             Processor.ClockCycles += 8; //extra cycles for the read
                             break;
                         //rotations with carry or without carry or whatever, 1x
+                        case 0x17:  // Rotate A left
+                            Processor.A = RlOp(Processor.A);
+                            break;
+                        case 0x10:  // Rotate B left
+                            Processor.B = RlOp(Processor.B);
+                            break;
+                        case 0x11:  // Rotate C left
+                            Processor.C = RlOp(Processor.C);
+                            break;
+                        case 0x12:  // Rotate D left
+                            Processor.D = RlOp(Processor.D);
+                            break;
+                        case 0x13:  // Rotate E left
+                            Processor.E = RlOp(Processor.E);
+                            break;
+                        case 0x14:  // Rotate H left
+                            Processor.H = RlOp(Processor.H);
+                            break;
+                        case 0x15:  // Rotate L left
+                            Processor.L = RlOp(Processor.L);
+                            break;
+                        case 0x16:  // Rotate (HL) left
+                            Memory.WriteByte(Processor.HL, RlOp(Memory.ReadByte(Processor.HL)));
+                            Processor.ClockCycles += 8; //extra cycles for the read
+                            break;
+                        case 0x1F:  // Rotate A right
+                            Processor.A = RrOp(Processor.A);
+                            break;
+                        case 0x18:  // Rotate B right
+                            Processor.B = RrOp(Processor.B);
+                            break;
+                        case 0x19:  // Rotate C right
+                            Processor.C = RrOp(Processor.C);
+                            break;
+                        case 0x1A:  // Rotate D right
+                            Processor.D = RrOp(Processor.D);
+                            break;
+                        case 0x1B:  // Rotate E right
+                            Processor.E = RrOp(Processor.E);
+                            break;
+                        case 0x1C:  // Rotate H right
+                            Processor.H = RrOp(Processor.H);
+                            break;
+                        case 0x1D:  // Rotate L right
+                            Processor.L = RrOp(Processor.L);
+                            break;
+                        case 0x1E:  // Rotate (HL) right
+                            Memory.WriteByte(Processor.HL, RrOp(Memory.ReadByte(Processor.HL)));
+                            Processor.ClockCycles += 8; //extra cycles for the read
+                            break;
                         //SLA and SRA, 2x
                         //swap and SRL (lolwut), 3x
                         case 0x37:  // SWAP A
@@ -1736,6 +1784,7 @@ namespace PancakeEmulator
         }
 
         #region Rotate Macro Operations - 3/4 not done!
+
         /// <summary>
         /// Rotates a byte to the right. 4 clock cycles. Will not increment PC. The lost bit is replaced by the carry bit. Sets flags.
         /// </summary>
@@ -1747,6 +1796,51 @@ namespace PancakeEmulator
             byte rotated = (byte)(p >> 1); //move the bits
             rotated |= (byte)(Processor.CarryFlag << 7); //add the carry flag in
             Processor.SetFlags((rotated == 0 ? 1 : 0), 0, 0, bit0);
+            Processor.ClockCycles += 4; //TODO: check how much of an op rotate is
+            return rotated;
+        }
+
+        /// <summary>
+        /// Rotates a byte to the right. 4 clock cycles. Will not increment PC. bit0->bit7. Sets flags.
+        /// </summary>
+        /// <param name="p">the data to be rotated.</param>
+        /// <returns>The rotated data.</returns>
+        public byte RrcOp(byte p)
+        {
+            byte bit0 = (byte)(p & 0x1); //grab the bottom bit
+            byte rotated = (byte)(p >> 1); //move the bits
+            rotated |= (byte)(bit0 << 7); //add the carry flag in
+            Processor.SetFlags((rotated == 0 ? 1 : 0), 0, 0, bit0);
+            Processor.ClockCycles += 4; //TODO: check how much of an op rotate is
+            return rotated;
+        }
+
+        /// <summary>
+        /// Rotates a byte to the left. 4 clock cycles. Will not increment PC. carry flag->bit0. Sets flags.
+        /// </summary>
+        /// <param name="p">the data to be rotated.</param>
+        /// <returns>The rotated data.</returns>
+        public byte RlOp(byte p)
+        {
+            byte bit7 = (byte)((p & 0x80) >> 7); //grab the top bit
+            byte rotated = (byte)(p << 1); //move the bits
+            rotated |= Processor.CarryFlag; //add the carry flag in
+            Processor.SetFlags((rotated == 0 ? 1 : 0), 0, 0, bit7);
+            Processor.ClockCycles += 4; //TODO: check how much of an op rotate is
+            return rotated;
+        }
+
+        /// <summary>
+        /// Rotates a byte to the left. 4 clock cycles. Will not increment PC. bit7->bit0. Sets flags.
+        /// </summary>
+        /// <param name="p">the data to be rotated.</param>
+        /// <returns>The rotated data.</returns>
+        public byte RlcOp(byte p)
+        {
+            byte bit7 = (byte)((p & 0x80) >> 7); //grab the top bit
+            byte rotated = (byte)(p << 1); //move the bits
+            rotated |= bit7; //add the carry flag in
+            Processor.SetFlags((rotated == 0 ? 1 : 0), 0, 0, bit7);
             Processor.ClockCycles += 4; //TODO: check how much of an op rotate is
             return rotated;
         }
@@ -1765,20 +1859,6 @@ namespace PancakeEmulator
             return shifted;
         }
 
-        private byte RrcOp(byte p)
-        {
-            throw new NotImplementedException();
-        }
-
-        private byte RlOp(byte p)
-        {
-            throw new NotImplementedException();
-        }
-
-        private byte RlcOp(byte p)
-        {
-            throw new NotImplementedException();
-        }
         #endregion
 
         #region Jump Macro Operations

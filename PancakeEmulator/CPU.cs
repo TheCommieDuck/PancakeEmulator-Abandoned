@@ -58,6 +58,23 @@ namespace PancakeEmulator
             SetFlags(1, 0, 1, 1);
         }
 
-        public static int EnableInterruptSignal { get; set; }
+        public int EnableInterruptSignal { get; set; }
+
+        public String RegisterDump
+        {
+            get
+            {
+                return String.Format("A: {0:X2}, B: {1:X2}, C: {2:X2}, D: {3:X2}, E: {4:X2}, HL: {5:X4}, SP: {6:X4}, CurrentPC: {7:X4}",
+                    A, B, C, D, E, HL, SP, PC - 1);
+            }
+        }
+
+        public String FlagDump
+        {
+            get
+            {
+                return String.Format("{0}{1}{2}{3}", ZeroFlag, SubtractionFlag, HalfFlag, CarryFlag);
+            }
+        }
     }
 }

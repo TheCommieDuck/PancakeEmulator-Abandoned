@@ -25,7 +25,7 @@ namespace PancakeEmulator
         public byte OldLicense;
         public byte MaskROMNumber; //???
         public byte Complement;
-        public byte Checksum; //ignored
+        //public byte Checksum; //ignored
     }
 
     class Rom
